@@ -248,6 +248,32 @@ function nhadep_day_key(string $date_gmt): ?string
     return $dt->setTimezone(nhadep_tz())->format('Y-m-d');
 }
 
+/** Slug of a post, derived from its source URL path (e.g. noithatdatky.com/<slug>/). */
+function nhadep_post_slug(array $post): string
+{
+    $link = nhadep_safe_url($post['link']);
+    if ($link === '') {
+        return '';
+    }
+    $path = (string) parse_url($link, PHP_URL_PATH);
+    $path = rtrim($path, '/');
+    $seg  = basename($path);
+    $seg  = preg_replace('/[^a-z0-9-]/u', '', strtolower($seg));
+    return trim($seg, '-');
+}
+
+/** Day's landing-page slug: topic slug of its primary (newest) post, fallback to dayKey. */
+function nhadep_day_slug(array $dayPosts, string $dayKey): string
+{
+    if (!empty($dayPosts)) {
+        $s = nhadep_post_slug($dayPosts[0]);
+        if ($s !== '') {
+            return $s;
+        }
+    }
+    return $dayKey;
+}
+
 function nhadep_day_label(string $dayKey): string
 {
     $dt = DateTimeImmutable::createFromFormat('!Y-m-d', $dayKey, nhadep_tz());
@@ -407,6 +433,21 @@ function nhadep_day_hash(array $dayPosts): string
         $dayPosts
     );
     return sha1(json_encode($rows, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+}
+
+/** Per-day metadata record used by index/archive/sitemap rendering. */
+function nhadep_day_meta(array $dayPosts, string $slug): array
+{
+    return [
+        'count'       => count($dayPosts),
+        'slug'        => $slug,
+        'url'         => NHADEP_CANONICAL . $slug . '/',
+        'first_title' => $dayPosts[0]['title'] ?? '',
+        'thumb'       => $dayPosts[0]['thumb'] ?? '',
+        'posts'       => array_map(static fn (array $p): array => [
+            'title' => $p['title'], 'link' => $p['link'],
+        ], $dayPosts),
+    ];
 }
 
 /* -------------------------------------------------------------------------
@@ -580,24 +621,7 @@ a{color:var(--amber)}
 .more-link{margin-top:auto;color:var(--amber);text-decoration:none;font-weight:700;font-size:.87rem;letter-spacing:.02em}
 .more-link:hover{color:var(--amber-dk)}
 
-/* ---- day timeline (#tin-theo-ngay) ---- */
-.timeline{list-style:none;border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:0 2px 12px rgba(28,25,23,.05)}
-.tl-row{display:grid;grid-template-columns:92px 1fr auto;gap:20px;align-items:start;padding:24px 26px;background:var(--card)}
-.tl-row:nth-child(even){background:#F5EEE2}
-.tl-date{text-align:center;border-right:1px solid var(--line);padding-right:16px}
-.tl-date b{display:block;font-family:Georgia,serif;font-size:2.15rem;color:var(--amber);line-height:1}
-.tl-date small{display:block;color:var(--muted);font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;margin-top:4px}
-.tl-main h3{font-size:1.06rem;display:flex;align-items:center;flex-wrap:wrap;gap:8px}
-.tl-main .dow{display:block;color:var(--muted);font-size:.83rem;margin-top:2px;font-family:-apple-system,"Segoe UI",Roboto,sans-serif;font-weight:400}
-.tl-titles{list-style:none;margin-top:12px;display:grid;gap:6px}
-.tl-titles li{font-size:.89rem;padding-left:14px;position:relative}
-.tl-titles li::before{content:"";position:absolute;left:0;top:.62em;width:6px;height:6px;border-radius:50%;background:var(--gold)}
-.tl-titles a{color:var(--ink);text-decoration:none}
-.tl-titles a:hover{color:var(--amber);text-decoration:underline}
-.tl-count{background:var(--gold-soft);color:var(--amber-dk);border-radius:999px;font-size:.73rem;font-weight:700;padding:2px 11px;letter-spacing:.03em}
-.tl-side{align-self:center}
-.tl-side a{color:var(--amber);font-weight:700;font-size:.86rem;text-decoration:none;white-space:nowrap}
-.tl-side a:hover{color:var(--amber-dk);text-decoration:underline}
+/* ---- day landing page (slug) + hub/archive (defined below) ---- */
 
 /* ---- about (#gioi-thieu) ---- */
 .about-grid{display:grid;gap:44px;grid-template-columns:1fr;align-items:start}
@@ -679,9 +703,35 @@ footer.site a:hover{text-decoration:underline}
 
 /* ---- responsive ---- */
 @media(min-width:600px){.news-grid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:720px){.tl-row{grid-template-columns:70px 1fr}.tl-side{grid-column:2;justify-self:start;margin-top:10px}.post-card{flex-direction:column}.post-thumb{flex-basis:auto;min-height:0;aspect-ratio:16/10}}
+@media(max-width:720px){.post-card{flex-direction:column}.post-thumb{flex-basis:auto;min-height:0;aspect-ratio:16/10}}
 @media(min-width:900px){.news-grid{grid-template-columns:repeat(3,1fr)}.about-grid{grid-template-columns:1.05fr 1fr}.contact-card{grid-template-columns:1.4fr 1fr;align-items:center}}
 @media(max-width:420px){.topbar .wrap{gap:10px}.brand{font-size:.88rem}.hotline-btn{padding:8px 14px;font-size:.8rem}.svc-grid{grid-template-columns:1fr}.stats-grid{grid-template-columns:1fr;gap:30px}.day-nav-cards{grid-template-columns:1fr}}
+
+/* ---- daily landing page (slug) + hub/archive ---- */
+.hero.day-hero-page{position:relative;min-height:64vh;display:flex;align-items:center;background-size:cover;background-position:center;background-color:var(--ink)}
+.hero.day-hero-page .hero-scrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(28,25,23,.55),rgba(28,25,23,.82))}
+.hero.day-hero-page .hero-inner{position:relative;z-index:1;max-width:820px}
+.hero.day-hero-page h1{color:#fff;font-size:clamp(1.9rem,4.4vw,3.3rem);line-height:1.08;margin:14px 0 14px;text-shadow:0 2px 18px rgba(0,0,0,.35)}
+.feature-wrap{margin:30px 0}
+.feature-card{display:grid;grid-template-columns:1.1fr 1fr;gap:0;background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;text-decoration:none;box-shadow:0 4px 18px rgba(28,25,23,.06);transition:transform .25s ease,box-shadow .25s ease}
+.feature-card:hover{transform:translateY(-4px);box-shadow:0 22px 44px rgba(28,25,23,.15)}
+.feature-media{background:linear-gradient(135deg,var(--gold-soft),var(--amber-soft));min-height:200px}
+.feature-body{padding:28px 30px;display:flex;flex-direction:column;gap:10px;justify-content:center}
+.feature-body h2{font-size:1.5rem;color:var(--ink);line-height:1.15}
+.feature-body p{color:var(--muted)}
+.recent-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:8px}
+.day-cell{display:flex;flex-direction:column;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 16px;text-decoration:none;transition:border-color .2s ease,transform .2s ease}
+.day-cell:hover{border-color:var(--amber);transform:translateY(-3px)}
+.day-cell b{font-family:Georgia,serif;font-size:1.02rem;color:var(--ink);font-weight:700;line-height:1.2}
+.day-cell small{color:var(--muted);font-size:.74rem;letter-spacing:.06em;text-transform:uppercase}
+.recent-more{margin-top:26px;text-align:center}
+.archive-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin:28px 0 40px}
+.archive-cell{display:flex;flex-direction:column;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 16px;text-decoration:none;transition:border-color .2s ease,transform .2s ease}
+.archive-cell:hover{border-color:var(--amber);transform:translateY(-3px)}
+.archive-cell b{font-family:Georgia,serif;font-size:.98rem;color:var(--ink);font-weight:700}
+.archive-cell small{color:var(--muted);font-size:.74rem}
+@media(max-width:900px){.feature-card{grid-template-columns:1fr}.feature-media{min-height:160px}.recent-grid,.archive-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:520px){.recent-grid,.archive-grid{grid-template-columns:1fr}}
 CSS;
 }
 
@@ -842,13 +892,14 @@ function nhadep_post_card(array $post, string $headingTag = 'h3'): string
  */
 function nhadep_render_daily_page(
     string $dayKey,
+    string $slug,
     array $dayPosts,
     string $contactUrl,
     ?array $prevDay,
     ?array $nextDay
 ): string {
     $label     = nhadep_day_label($dayKey);
-    $canonical = NHADEP_CANONICAL . 'tin-tuc/' . $dayKey . '/';
+    $canonical = NHADEP_CANONICAL . $slug . '/';
     $count     = count($dayPosts);
 
     $dt = DateTimeImmutable::createFromFormat('!Y-m-d', $dayKey, nhadep_tz());
@@ -859,6 +910,25 @@ function nhadep_render_daily_page(
     $dow  = ($dt instanceof DateTimeImmutable && isset($dows[(int) $dt->format('N')]))
         ? $dows[(int) $dt->format('N')] : '';
     $ddmmyyyy = $dt instanceof DateTimeImmutable ? $dt->format('d-m-Y') : $dayKey;
+
+    $primary   = $dayPosts[0] ?? ['title' => '', 'thumb' => ''];
+    $heroTitle = nhadep_san(trim(strip_tags(html_entity_decode($primary['title'] ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8'))));
+    $heroImg   = nhadep_safe_url($primary['thumb'] ?? '');
+    $heroBg    = $heroImg !== '' ? ' style="background-image:url(\'' . $heroImg . '\')"' : '';
+    $icon = static fn (string $paths): string => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' . $paths . '</svg>';
+    $svc  = static fn (string $iSvg, string $name, string $txt): string =>
+        '<div class="svc">' . $iSvg . '<h3>' . $name . '</h3><p>' . $txt . '</p></div>';
+    $brandServices = '<section id="gioi-thieu" class="band alt"><div class="wrap"><div class="about-grid">' 
+        . '<div class="about-copy"><span class="sec-kicker">Về Đạt Kỳ</span>'
+        . '<h2>' . nhadep_san(NHADEP_BRAND_NAME) . '</h2>'
+        . '<p class="lead">Đơn vị thiết kế &amp; thi công nội thất trọn gói với xưởng sản xuất trực tiếp, đồng hành cùng khách hàng tại Nghệ An và Hà Tĩnh.</p>'
+        . '<ul class="about-list"><li>Xưởng sản xuất trực tiếp — giá tốt hơn 15–25%</li><li>Đội ngũ kiến trúc sư &amp; thợ lành nghề</li><li>Bảo hành dài hạn, hỗ trợ trọn đời sản phẩm</li></ul>'
+        . '</div><div class="svc-grid">' 
+        . $svc($icon('<path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>'), 'Nội thất nhà phố', 'Thiết kế thông minh cho mặt tiền hẹp, tối ưu từng mét vuông.')
+        . $svc($icon('<path d="M3 21h18"/><path d="M6 21V9l6-5 6 5v12"/><path d="M9 21v-4h6v4"/><circle cx="17.5" cy="5.5" r="1.5"/>'), 'Biệt thự &amp; Villa', 'Không gian sang trọng, đồng bộ phong cách từ ngoài vào trong.')
+        . $svc($icon('<rect x="5" y="3" width="14" height="18" rx="1"/><path d="M9 7h2m2 0h2M9 11h2m2 0h2M9 15h2m2 0h2"/><path d="M10 21v-3h4v3"/>'), 'Nội thất căn hộ', 'Giải pháp lưu trữ thông minh, hiện đại cho căn hộ đô thị.')
+        . $svc($icon('<path d="M3 9h18"/><path d="M4 9v11m16-11v11"/><path d="M7 13h10"/><path d="M12 9V5h7"/>'), 'Nội thất văn phòng', 'Công năng hiệu suất cao, thẩm mỹ chuẩn thương hiệu doanh nghiệp.')
+        . '</div></div></div></section>';
 
     $desc = 'Tổng hợp ' . $count . ' tin tức nội thất ngày ' . $ddmmyyyy . ' từ ' . NHADEP_BRAND_NAME
         . ' — ' . NHADEP_TAGLINE . '.';
@@ -898,20 +968,11 @@ function nhadep_render_daily_page(
         $items .= nhadep_post_card($post, $i === 0 ? 'h2' : 'h3') . "\n";
     }
 
-    $navCard = static function (string $rel, string $smallTxt, string $key) use ($dows): string {
-        $d = DateTimeImmutable::createFromFormat('!Y-m-d', $key, nhadep_tz());
-        $txt = $d instanceof DateTimeImmutable
-            ? $d->format('d/m/Y') . ' · ' . ($dows[(int) $d->format('N')] ?? '')
-            : $key;
-        $cls = $rel === 'next' ? ' dnav next' : ' dnav';
-        return '<a class="dnav' . $cls . '" href="../' . $key . '/" rel="' . $rel . '">'
-            . '<small>' . $smallTxt . '</small><b>' . nhadep_san($txt) . '</b></a>';
-    };
     $prevHtml = $prevDay !== null
-        ? $navCard('prev', '&larr; Ngày cũ hơn', $prevDay['key'])
+        ? '<a class="dnav" href="/' . nhadep_san($prevDay['slug'] ?? '') . '/" rel="prev"><small>&larr; Ngày cũ hơn</small><b>' . nhadep_san(nhadep_day_label($prevDay['key'])) . '</b></a>'
         : '<div class="dnav empty"><small>&larr; Ngày cũ hơn</small><b>—</b></div>';
     $nextHtml = $nextDay !== null
-        ? $navCard('next', 'Ngày mới hơn &rarr;', $nextDay['key'])
+        ? '<a class="dnav next" href="/' . nhadep_san($nextDay['slug'] ?? '') . '/" rel="next"><small>Ngày mới hơn &rarr;</small><b>' . nhadep_san(nhadep_day_label($nextDay['key'])) . '</b></a>'
         : '<div class="dnav empty next"><small>Ngày mới hơn &rarr;</small><b>—</b></div>';
 
     $cta   = htmlspecialchars($contactUrl, ENT_QUOTES | ENT_HTML5, 'UTF-8');
@@ -922,25 +983,34 @@ function nhadep_render_daily_page(
         . nhadep_head('Tin tức ngày ' . $ddmmyyyy . ' — ' . NHADEP_BRAND_SHORT, $desc, $canonical, $extra, $dayPosts[0]['thumb'] ?? '')
         . "</head>\n<body>\n"
         . nhadep_header_html(false)
-        . '<main class="wrap">'
-        . '<nav class="crumbs" aria-label="Breadcrumb"><a href="/">Trang chủ</a> &rsaquo; <a href="/#tin-moi">Tin tức</a> &rsaquo; <span aria-current="page">Ngày ' . $ddmmyyyy . '</span></nav>'
-        . '<h1 class="sr-only">Tin tức nội thất ngày ' . $ddmmyyyy . ' — ' . nhadep_san(NHADEP_BRAND_SHORT) . '</h1>'
-        . '<section class="day-hero" aria-label="Ngày ' . $ddmmyyyy . '">'
-        . '<div class="day-num">' . $dN . '</div>'
-        . '<div class="day-sub"><span class="month">Tháng ' . str_pad((string) $mo, 2, '0', STR_PAD_LEFT) . ', ' . $yN . '</span>'
-        . '<div class="dow">' . nhadep_san($dow) . '</div></div>'
-        . '<span class="count-badge">' . $count . ' bài viết</span>'
-        . '</section>'
-        . '<div class="post-list">' . "\n" . $items . '</div>'
-        . '<nav class="day-nav-cards" aria-label="Điều hướng theo ngày">' . $prevHtml . $nextHtml . '</nav>'
+        . '<main>'
+        . '<nav class="crumbs" aria-label="Breadcrumb"><a href="/">Trang chủ</a> &rsaquo; <a href="/#tin-moi">Tin tức</a> &rsaquo; <span aria-current="page">' . nhadep_san($ddmmyyyy) . '</span></nav>'
+        . '<section id="hero" class="hero day-hero-page"' . $heroBg . ' aria-label="Tin tức nội thất ngày ' . nhadep_san($ddmmyyyy) . '">'
+        . '<div class="hero-scrim" aria-hidden="true"></div>'
+        . '<div class="hero-inner">' 
+        . '<span class="kicker">TIN TỨC NỘI THẤT · ' . nhadep_san($dow) . ', ' . nhadep_san($ddmmyyyy) . '</span>'
+        . '<h1>' . $heroTitle . '</h1>'
+        . '<p class="sub">' . nhadep_san(NHADEP_TAGLINE) . '. Cập nhật hằng ngày từ ' . nhadep_san(NHADEP_BRAND_SHORT) . '.</p>'
+        . '<div class="cta-row"><a class="btn btn-outline" href="#tin-ngay">Xem tin ngày</a>'
+        . '<a class="btn btn-solid" href="' . NHADEP_HOTLINE_TEL . '">&#9742; Hotline ' . NHADEP_HOTLINE_TEXT . '</a></div>'
+        . '<div class="trust-row"><span>Thi công trọn gói</span><span>Bảo hành dài hạn</span><span>Thiết kế miễn phí</span></div>'
+        . '</div></section>'
+        . '<section id="tin-ngay" class="band"><div class="wrap"><div class="sec-head"><span class="sec-kicker">Tin ngày</span><h2>Tin tức ngày ' . nhadep_san($ddmmyyyy) . '</h2><p>' . $count . ' bài viết mới nhất được tổng hợp từ noithatdatky.com.</p><span class="rule"></span></div>'
+        . '<div class="post-list">' . "\n" . $items . '</div></div></section>'
+        . '<nav class="day-nav-cards" aria-label="Điều hướng theo ngày"><div class="wrap">' . $prevHtml . $nextHtml . '</div></nav>'
+        . $brandServices
+        . '<section id="lien-he" class="band"><div class="wrap"><div class="contact-card">' 
+        . '<div class="contact-info"><span class="sec-kicker">Liên hệ</span>'
+        . '<h2>Nhận tư vấn &amp; báo giá miễn phí</h2>'
+        . '<a class="contact-big" href="' . NHADEP_HOTLINE_TEL . '">' . NHADEP_HOTLINE_TEXT . '</a>'
+        . '<div class="contact-meta"><span>&#9993; <a href="mailto:' . $email . '">' . $email . '</a></span>'
+        . '<span>&#128205; ' . nhadep_san(NHADEP_ADDRESS) . '</span></div></div>'
+        . '<div class="contact-actions">'
+        . '<a class="btn btn-solid" href="' . NHADEP_HOTLINE_TEL . '">&#9742; Gọi ngay hotline</a>'
+        . '<a class="btn btn-outline" href="' . nhadep_safe_url(NHADEP_SOURCE_ORIGIN) . '" rel="noopener">Truy cập noithatdatky.com</a>'
+        . '<a class="more-link" style="color:var(--gold)" href="' . $cta . '">Hoặc xem trang Liên hệ &rarr;</a>'
+        . '</div></div></div></section>'
         . '<div class="home-link-row"><a href="/">&larr; Về trang chủ</a></div>'
-        . '<section class="contact-mini" id="lien-he" aria-label="Thông tin liên hệ">'
-        . '<h2>Liên hệ ' . nhadep_san(NHADEP_BRAND_SHORT) . ' — DK Home Design</h2>'
-        . '<p>Hotline: <a href="' . $tel . '">' . NHADEP_HOTLINE_TEXT . '</a></p>'
-        . '<p>Email: <a href="mailto:' . $email . '">' . $email . '</a></p>'
-        . '<p>Địa chỉ: ' . nhadep_san(NHADEP_ADDRESS) . '</p>'
-        . '<p><a href="' . $cta . '" rel="noopener">Truy cập noithatdatky.com &rarr;</a></p>'
-        . '</section>'
         . '</main>'
         . nhadep_footer_html()
         . "\n</body>\n</html>\n";
@@ -1026,34 +1096,30 @@ function nhadep_render_index_page(
         . ($cards !== '' ? '<div class="news-grid">' . "\n" . $cards . '</div>' : '')
         . '</div></section>';
 
-    /* ---- #tin-theo-ngay: timeline of ALL days, newest-first ---- */
-    $dows = [1 => 'Thứ Hai', 2 => 'Thứ Ba', 3 => 'Thứ Tư', 4 => 'Thứ Năm', 5 => 'Thứ Sáu', 6 => 'Thứ Bảy', 7 => 'Chủ Nhật'];
-    $timeline = '';
-    foreach (nhadep_index_items($days) as $row) {
-        $dt = DateTimeImmutable::createFromFormat('!Y-m-d', $row['key'], nhadep_tz());
-        $dN = $dt instanceof DateTimeImmutable ? $dt->format('j') : $row['key'];
-        $mN = $dt instanceof DateTimeImmutable ? 'Tháng ' . $dt->format('m') : '';
-        $dw = ($dt instanceof DateTimeImmutable && isset($dows[(int) $dt->format('N')])) ? $dows[(int) $dt->format('N')] : '';
-
-        $titles = '';
-        foreach (($days[$row['key']]['posts'] ?? []) as $p) {
-            $t = nhadep_san(trim(strip_tags(html_entity_decode((string) $p['title'], ENT_QUOTES | ENT_HTML5, 'UTF-8'))));
-            $l = nhadep_safe_url((string) $p['link']);
-            $titles .= '<li>' . ($l !== '' ? '<a href="' . $l . '" rel="noopener">' . $t . '</a>' : $t) . '</li>';
-        }
-        $timeline .= '<li class="tl-row">'
-            . '<div class="tl-date"><b>' . $dN . '</b><small>' . nhadep_san($mN) . '</small></div>'
-            . '<div class="tl-main"><h3>Tin ngày ' . nhadep_san($dw) . '<span class="tl-count">' . $row['count'] . ' bài</span></h3>'
-            . '<span class="dow">' . nhadep_san($row['name']) . '</span>'
-            . ($titles !== '' ? '<ul class="tl-titles">' . $titles . '</ul>' : '')
-            . '</div>'
-            . '<div class="tl-side"><a href="tin-tuc/' . $row['key'] . '/">Xem trang ngày &rarr;</a></div>'
-            . '</li>' . "\n";
+    /* ---- #tin-theo-ngay: compact hub of recent days + archive link ---- */
+    $rows    = nhadep_index_items($days); // newest-first
+    $newest  = $rows[0] ?? null;
+    $featured = '';
+    if ($newest !== null) {
+        $featured = '<a class="feature-card" href="' . $newest['url'] . '">'
+            . '<div class="feature-media"></div>'
+            . '<div class="feature-body"><span class="sec-kicker">Tin mới nhất</span>'
+            . '<h2>' . nhadep_san($newest['teaser']) . '</h2>'
+            . '<p>' . nhadep_san($newest['name']) . ' · ' . $newest['count'] . ' bài viết</p>'
+            . '<span class="btn btn-outline">Xem trang tin ngày &rarr;</span></div></a>';
     }
-    $timelineSection = '<section id="tin-theo-ngay" class="band alt"><div class="wrap">'
-        . '<div class="sec-head"><span class="sec-kicker">Lưu trữ</span><h2>Hành trình tin theo ngày</h2>'
-        . '<p>Toàn bộ ' . count($days) . ' ngày cập nhật, mới nhất đầu tiên.</p><span class="rule"></span></div>'
-        . '<ol class="timeline">' . "\n" . $timeline . '</ol>'
+    $recent = '';
+    foreach (array_slice($rows, 0, 12) as $row) {
+        $recent .= '<a class="day-cell" href="' . $row['url'] . '">'
+            . '<b>' . nhadep_san($row['name']) . '</b>'
+            . '<small>' . $row['count'] . ' bài</small></a>';
+    }
+    $recentSection = '<section id="tin-theo-ngay" class="band alt"><div class="wrap">'
+        . '<div class="sec-head"><span class="sec-kicker">Lưu trữ</span><h2>Các ngày đã cập nhật</h2>'
+        . '<p>' . count($days) . ' ngày tin tức, mới nhất đầu tiên.</p><span class="rule"></span></div>'
+        . ($featured !== '' ? '<div class="feature-wrap">' . $featured . '</div>' : '')
+        . '<div class="recent-grid">' . $recent . '</div>'
+        . '<div class="recent-more"><a class="btn btn-outline" href="/tin-tuc/">Xem tất cả các ngày &rarr;</a></div>'
         . '</div></section>';
 
     /* ---- #gioi-thieu: split about + service cards ---- */
@@ -1107,7 +1173,7 @@ function nhadep_render_index_page(
         . '<main>'
         . $heroHtml
         . $newsSection
-        . $timelineSection
+        . $recentSection
         . $aboutSection
         . $statsSection
         . $contactSection
@@ -1129,10 +1195,37 @@ function nhadep_index_items(array $days): array
             'name'   => nhadep_day_label($key),
             'count'  => (int) $meta['count'],
             'teaser' => nhadep_san($teaser),
-            'url'    => NHADEP_CANONICAL . 'tin-tuc/' . $key . '/',
+            'url'    => '/' . ($meta['slug'] ?? $key) . '/',
         ];
     }
     return $rows;
+}
+
+/** Render the archive hub (out/tin-tuc/index.html): all days, newest-first. */
+function nhadep_render_archive(array $days): string
+{
+    $cells = '';
+    foreach ($days as $key => $meta) {
+        $slug = $meta['slug'] ?? $key;
+        $name = nhadep_day_label($key);
+        $url  = '/' . $slug . '/';
+        $cells .= '<a class="day-cell archive-cell" href="' . $url . '">'
+            . '<b>' . nhadep_san($name) . '</b>'
+            . '<small>' . (int) $meta['count'] . ' bài viết</small></a>';
+    }
+    $desc = 'Lưu trữ toàn bộ các trang tin tức nội thất theo ngày từ ' . NHADEP_BRAND_NAME . '.';
+    return '<!DOCTYPE html>' . "\n" . '<html lang="vi">' . "\n<head>\n"
+        . nhadep_head('Lưu trữ tin tức — ' . NHADEP_BRAND_SHORT, $desc, NHADEP_CANONICAL . 'tin-tuc/')
+        . "</head>\n<body>\n"
+        . nhadep_header_html(false)
+        . '<main class="wrap">' 
+        . '<nav class="crumbs" aria-label="Breadcrumb"><a href="/">Trang chủ</a> &rsaquo; <span aria-current="page">Lưu trữ</span></nav>'
+        . '<h1>Lưu trữ tin tức nội thất</h1>'
+        . '<p class="lead">' . nhadep_san(NHADEP_TAGLINE) . '.</p>'
+        . '<div class="archive-grid">' . $cells . '</div>'
+        . '</main>'
+        . nhadep_footer_html()
+        . "\n</body>\n</html>\n";
 }
 
 /** Render sitemap.xml covering index + every daily page. */
@@ -1144,8 +1237,9 @@ function nhadep_render_sitemap(array $days, array $lastmods): string
     $xml .= "\t<url>\n\t\t<loc>" . NHADEP_CANONICAL . "</loc>\n\t\t<lastmod>"
          . htmlspecialchars($lastmods['index'] ?? $today, ENT_QUOTES) . "</lastmod>\n\t</url>\n";
     foreach (array_keys($days) as $key) {
+        $s  = $days[$key]['slug'] ?? $key;
         $lm = $lastmods['days'][$key] ?? $today;
-        $xml .= "\t<url>\n\t\t<loc>" . NHADEP_CANONICAL . 'tin-tuc/' . $key . "/</loc>\n\t\t<lastmod>"
+        $xml .= "\t<url>\n\t\t<loc>" . NHADEP_CANONICAL . $s . "/</loc>\n\t\t<lastmod>"
              . htmlspecialchars($lm, ENT_QUOTES) . "</lastmod>\n\t</url>\n";
     }
     return $xml . "</urlset>\n";
@@ -1169,6 +1263,8 @@ function nhadep_render_feed(array $latestPosts, string $contactUrl): string
 
     foreach ($latestPosts as $p) {
         $link = nhadep_safe_url($p['link']);
+        $slug = nhadep_post_slug($p);
+        $pageLink = $slug !== '' ? NHADEP_CANONICAL . $slug . '/' : $link;
         if ($link === '') {
             continue;
         }
@@ -1180,7 +1276,7 @@ function nhadep_render_feed(array $latestPosts, string $contactUrl): string
         }
         $title = trim(strip_tags(html_entity_decode($p['title'], ENT_QUOTES | ENT_HTML5, 'UTF-8')));
         $xml .= "<item>\n<title>" . $esc($title) . "</title>\n"
-            . '<link>' . $esc(html_entity_decode($link, ENT_QUOTES, 'UTF-8')) . "</link>\n"
+            . '<link>' . $esc(html_entity_decode($pageLink, ENT_QUOTES, 'UTF-8')) . "</link>\n"
             . '<guid isPermaLink="false">ntdk-post-' . (int) $p['id'] . "</guid>\n"
             . '<pubDate>' . $pubStr . "</pubDate>\n"
             . '<description>' . $esc(mb_substr(trim(strip_tags(html_entity_decode($p['excerpt'], ENT_QUOTES | ENT_HTML5, 'UTF-8'))), 0, 300)) . "</description>\n</item>\n";
@@ -1323,13 +1419,28 @@ function run_main(array $argv): int
         $orderedDays = array_reverse($dayKeys); // oldest-first for prev/next math
         $dayMetaNewestFirst = [];
 
+        // Resolve a unique landing-page slug per day (topic slug of its primary post).
+        $slugByKey = [];
+        $usedSlugs = [];
+        foreach ($orderedDays as $key) {
+            $base = nhadep_day_slug($groups[$key], $key);
+            $s = $base;
+            $i = 2;
+            while (isset($usedSlugs[$s])) {
+                $s = $base . '-' . $i++;
+            }
+            $usedSlugs[$s]     = true;
+            $slugByKey[$key]   = $s;
+        }
+
         foreach ($orderedDays as $idx => $key) {
             $dayPosts = $groups[$key];
             $hash     = nhadep_day_hash($dayPosts);
-            $fileRel  = 'tin-tuc/' . $key . '/index.html';
+            $slug     = $slugByKey[$key];
+            $fileRel  = $slug . '/index.html';
 
-            $prev = $idx > 0 ? ['key' => $orderedDays[$idx - 1]] : null;
-            $next = $idx < count($orderedDays) - 1 ? ['key' => $orderedDays[$idx + 1]] : null;
+            $prev = $idx > 0 ? ['key' => $orderedDays[$idx - 1], 'slug' => $slugByKey[$orderedDays[$idx - 1]]] : null;
+            $next = $idx < count($orderedDays) - 1 ? ['key' => $orderedDays[$idx + 1], 'slug' => $slugByKey[$orderedDays[$idx + 1]]] : null;
 
             $unchanged = isset($state['days'][$key]) && $state['days'][$key] === $hash;
             if (!$opts['force'] && $unchanged && !is_file($outRoot . '/' . $fileRel)) {
@@ -1339,13 +1450,7 @@ function run_main(array $argv): int
 
             if ($opts['date'] !== null && $key !== $opts['date']) {
                 // Single-day mode: only touch the requested day; record meta either way.
-                $dayMetaNewestFirst[$key] = [
-                    'count'       => count($dayPosts),
-                    'first_title' => $dayPosts[0]['title'],
-                    'posts'       => array_map(static fn (array $p): array => [
-                        'title' => $p['title'], 'link' => $p['link'],
-                    ], $dayPosts),
-                ];
+                $dayMetaNewestFirst[$key] = nhadep_day_meta($dayPosts, $slug);
                 $lastmods['days'][$key] = nhadep_lastmod_of_day($dayPosts);
                 continue;
             }
@@ -1356,31 +1461,25 @@ function run_main(array $argv): int
                     nhadep_log("Bỏ qua {$key} (không thay đổi)", 'DEBUG');
                 }
             } else {
-                $html = nhadep_render_daily_page($key, $dayPosts, $contactUrl, $prev, $next);
+                $html = nhadep_render_daily_page($key, $slug, $dayPosts, $contactUrl, $prev, $next);
                 nhadep_write_file($outRoot, $fileRel, $html);
                 $generated++;
                 nhadep_log("Đã sinh trang ngày {$key} ({$fileRel})");
             }
 
-            $state['days'][$key] = $hash;
-            $dayMetaNewestFirst[$key] = [
-                'count'       => count($dayPosts),
-                'first_title' => $dayPosts[0]['title'],
-                'posts'       => array_map(static fn (array $p): array => [
-                    'title' => $p['title'], 'link' => $p['link'],
-                ], $dayPosts),
-            ];
-            $lastmods['days'][$key] = nhadep_lastmod_of_day($dayPosts);
+            $state['days'][$key]         = $hash;
+            $dayMetaNewestFirst[$key]    = nhadep_day_meta($dayPosts, $slug);
+            $lastmods['days'][$key]       = nhadep_lastmod_of_day($dayPosts);
         }
 
-        // Newest-first ordering for index/feed rendering.
+        // Newest-first ordering for index/feed/archive rendering.
         $dayMetaNewestFirst = array_reverse($dayMetaNewestFirst, true);
 
         if ($opts['date'] !== null && !isset($groups[$opts['date']])) {
             nhadep_log("--date={$opts['date']} nhưng không có bài viết nào trong ngày đó.", 'WARN');
         }
 
-        // ---- Landing page / sitemap / robots / feed (always regenerated) --
+        // ---- Landing page / archive / sitemap / robots / feed (always regenerated) --
         $totalPosts = array_sum(array_map(static fn ($m) => (int) $m['count'], $dayMetaNewestFirst));
 
         nhadep_write_file($outRoot, 'index.html', nhadep_render_index_page(
@@ -1391,6 +1490,9 @@ function run_main(array $argv): int
             $posts[0]['thumb'] ?? ''
         ));
         nhadep_log('Đã cập nhật index.html');
+
+        nhadep_write_file($outRoot, 'tin-tuc/index.html', nhadep_render_archive($dayMetaNewestFirst));
+        nhadep_log('Đã cập nhật tin-tuc/index.html (lưu trữ)');
 
         $newestGmt = $posts[0]['date_gmt'];
         try {

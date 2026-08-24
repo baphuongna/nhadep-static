@@ -33,6 +33,16 @@ const NHADEP_MAX_PAGES     = 60;          // hard safety cap for pagination loop
 const NHADEP_HTTP_TIMEOUT  = 25;          // seconds
 const NHADEP_WEB_KEY       = 'datky-nhadep-gen-2026'; // webhook trigger: ?key=<NHADEP_WEB_KEY>
 
+/* Brand facts (single source of truth for every rendered page). */
+const NHADEP_BRAND_NAME    = 'NỘI THẤT ĐẠT KỲ — DK HOME DESIGN';
+const NHADEP_BRAND_SHORT   = 'Nội thất Đạt Kỳ';
+const NHADEP_TAGLINE       = 'Thiết kế & thi công nội thất trọn gói Nhà Phố, Villa, Căn hộ tại Nghệ An & Hà Tĩnh';
+const NHADEP_HOTLINE_TEXT  = '0922 355 368';
+const NHADEP_HOTLINE_TEL   = 'tel:+84922355368';
+const NHADEP_EMAIL         = 'noithatdatky@gmail.com';
+const NHADEP_ADDRESS       = 'Số 68 Quán Lề, Khu đô thị Vườn Xanh, Diễn Châu, Nghệ An';
+const NHADEP_LOGO_URL      = 'https://noithatdatky.com/wp-content/uploads/2020/11/noi-that-dat-ky-logo.png';
+
 /* -------------------------------------------------------------------------
  * PHP 7.4 polyfills (Hostinger CLI default is PHP 7.4; web is 8.x).
  * ---------------------------------------------------------------------- */
@@ -268,7 +278,7 @@ function nhadep_time_label(string $wpLocalDate): string
 /**
  * Fetch all posts from the REST API (paginated), up to $maxPosts (0 = all).
  * Returns list of normalized post arrays:
- *   id, link, title_raw, excerpt_raw, thumb_raw, date_gmt, date_local
+ *   id, link, title, excerpt, thumb, thumb_w, thumb_h, date_gmt, date_local
  */
 function nhadep_fetch_all_posts(int $maxPosts, bool $verbose): array
 {
@@ -313,13 +323,27 @@ function nhadep_fetch_all_posts(int $maxPosts, bool $verbose): array
             $title    = $p['title']['rendered'] ?? '';
             $excerpt  = $p['excerpt']['rendered'] ?? '';
 
-            // Featured image: prefer medium size, fall back to source_url.
+            // Featured image: prefer medium size, fall back to thumbnail/source_url.
+            // Keep intrinsic width/height of the chosen size so cards can emit
+            // real <img width/height> attributes (NOT part of nhadep_day_hash).
             $thumb = '';
+            $tw    = 0;
+            $th    = 0;
             if (isset($p['_embedded']['wp:featuredmedia'][0]) && is_array($p['_embedded']['wp:featuredmedia'][0])) {
-                $fm = $p['_embedded']['wp:featuredmedia'][0];
-                $thumb = $fm['media_details']['sizes']['medium']['source_url']
-                    ?? $fm['media_details']['sizes']['thumbnail']['source_url']
-                    ?? ($fm['source_url'] ?? '');
+                $fm   = $p['_embedded']['wp:featuredmedia'][0];
+                $size = $fm['media_details']['sizes']['medium']
+                    ?? $fm['media_details']['sizes']['thumbnail']
+                    ?? null;
+                if (is_array($size)) {
+                    $thumb = is_string($size['source_url'] ?? null) ? $size['source_url'] : '';
+                    $tw    = (int) ($size['width'] ?? 0);
+                    $th    = (int) ($size['height'] ?? 0);
+                }
+                if ($thumb === '') {
+                    $thumb = is_string($fm['source_url'] ?? null) ? $fm['source_url'] : '';
+                    $tw    = (int) ($fm['media_details']['width'] ?? 0);
+                    $th    = (int) ($fm['media_details']['height'] ?? 0);
+                }
             }
 
             $posts[] = [
@@ -328,6 +352,8 @@ function nhadep_fetch_all_posts(int $maxPosts, bool $verbose): array
                 'title'      => is_string($title) ? $title : '',
                 'excerpt'    => is_string($excerpt) ? $excerpt : '',
                 'thumb'      => is_string($thumb) ? $thumb : '',
+                'thumb_w'    => $tw,
+                'thumb_h'    => $th,
                 'date_gmt'   => $dateGmt,
                 'date_local' => is_string($p['date'] ?? null) ? $p['date'] : '',
             ];
@@ -487,97 +513,332 @@ function nhadep_contact_url(bool $verbose): string
 function nhadep_css(): string
 {
     return <<<'CSS'
-:root{--ink:#22292f;--muted:#5b6670;--brand:#8a4b2a;--brand-dark:#6e3a1f;--bg:#faf7f3;--card:#ffffff;--line:#eadfd4}
+:root{--amber:#B45309;--amber-dk:#92400E;--ink:#1C1917;--bg:#FAF7F2;--gold:#D4A853;--gold-soft:#F1E4CE;--card:#FFFFFF;--line:#EADFD4;--muted:#6B5B4E;--cream-txt:#EFE6D8}
 *{box-sizing:border-box;margin:0;padding:0}
-html{-webkit-text-size-adjust:100%}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;line-height:1.65;color:var(--ink);background:var(--bg)}
-.wrap{max-width:960px;margin:0 auto;padding:0 16px}
-header.site{background:var(--brand);color:#fff;padding:18px 0}
-header.site a.brand{color:#fff;text-decoration:none;font-size:1.25rem;font-weight:700}
-header.site .tagline{font-size:.85rem;opacity:.9;margin-top:2px}
-nav.day-nav{display:flex;justify-content:space-between;gap:12px;padding:14px 0;flex-wrap:wrap}
-nav.day-nav a{color:var(--brand);text-decoration:none;font-weight:600;border:1px solid var(--line);background:var(--card);padding:8px 14px;border-radius:8px}
-.hero{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:22px;margin:18px 0}
-.hero h1{font-size:1.5rem;color:var(--brand-dark);margin-bottom:10px;line-height:1.35}
-.hero p{color:var(--muted)}
-.post-list{list-style:none;display:grid;gap:14px;margin:18px 0}
-.post-card{display:flex;gap:14px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
-.post-thumb{flex:0 0 120px;height:90px;border-radius:8px;overflow:hidden;background:var(--line)}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;line-height:1.7;color:var(--ink);background:var(--bg)}
+h1,h2,h3,.serif{font-family:Georgia,"Times New Roman",serif;line-height:1.28;font-weight:700}
+img{max-width:100%}
+a{color:var(--amber)}
+.wrap{max-width:1100px;margin:0 auto;padding:0 20px}
+
+/* ---- sticky top bar ---- */
+.topbar{position:sticky;top:0;z-index:60;background:rgba(28,25,23,.97);border-bottom:2px solid var(--amber)}
+.topbar .wrap{display:flex;align-items:center;gap:16px;min-height:62px;flex-wrap:wrap;padding-top:8px;padding-bottom:8px}
+.brand{display:flex;align-items:center;gap:10px;color:var(--bg);text-decoration:none;font-family:Georgia,"Times New Roman",serif;font-size:.98rem;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
+.brand b{color:var(--gold);font-weight:700}
+.topnav{display:flex;gap:2px;margin-left:auto;align-items:center}
+.topnav a{color:var(--cream-txt);text-decoration:none;font-size:.86rem;padding:7px 11px;border-radius:8px;letter-spacing:.03em}
+.topnav a:hover{color:#fff;background:rgba(212,168,83,.18)}
+.hotline-btn{display:inline-flex;align-items:center;gap:7px;background:var(--amber);color:#fff;text-decoration:none;font-weight:700;font-size:.87rem;padding:9px 17px;border-radius:999px;letter-spacing:.02em;white-space:nowrap;transition:background .2s ease,transform .2s ease}
+.hotline-btn:hover{background:var(--amber-dk);transform:translateY(-1px)}
+
+/* ---- hero ---- */
+.hero{position:relative;min-height:70vh;display:flex;align-items:center;color:var(--bg);overflow:hidden;background:#1C1917}
+.hero::before{content:"";position:absolute;inset:0;background:linear-gradient(155deg,#33261A 0%,#1C1917 55%,#4A321B 100%)}
+.hero-bg{position:absolute;inset:0;background-size:cover;background-position:center;opacity:.36}
+.hero-scrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(28,25,23,.5) 0%,rgba(28,25,23,.28) 45%,rgba(28,25,23,.94) 100%)}
+.hero-inner{position:relative;z-index:1;width:100%;max-width:1100px;margin:0 auto;padding:96px 20px 88px}
+.kicker{display:inline-block;color:var(--gold);border:1px solid rgba(212,168,83,.55);padding:7px 16px;border-radius:999px;font-size:.72rem;letter-spacing:.3em;text-transform:uppercase;margin-bottom:24px}
+.hero h1{font-size:clamp(2.05rem,5.4vw,3.5rem);max-width:22ch;color:#FAF7F2;letter-spacing:.01em;text-shadow:0 2px 18px rgba(0,0,0,.35)}
+.hero .sub{margin-top:18px;max-width:58ch;color:#DFD2BC;font-size:1.04rem}
+.cta-row{display:flex;gap:14px;margin-top:32px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:9px;text-decoration:none;font-weight:700;padding:14px 27px;border-radius:10px;font-size:.95rem;transition:transform .2s ease,box-shadow .2s ease,background .2s ease}
+.btn-solid{background:var(--amber);color:#fff}
+.btn-solid:hover{background:var(--amber-dk);transform:translateY(-2px);box-shadow:0 12px 26px rgba(180,83,9,.38)}
+.btn-outline{border:1.5px solid var(--gold);color:var(--gold)}
+.btn-outline:hover{background:rgba(212,168,83,.16)}
+.trust-row{display:flex;gap:24px;flex-wrap:wrap;margin-top:36px;color:#CDBDA2;font-size:.88rem}
+.trust-row span::before{content:"\2713\00a0\00a0";color:var(--gold);font-weight:700}
+
+/* ---- section scaffolding ---- */
+.band{padding:74px 0}
+.band.alt{background:#F3EBDE;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.sec-head{text-align:center;max-width:680px;margin:0 auto 46px}
+.sec-kicker{display:block;color:var(--amber);font-size:.76rem;letter-spacing:.26em;text-transform:uppercase;font-weight:700}
+.sec-head h2{font-size:clamp(1.65rem,3.4vw,2.35rem);margin-top:10px;color:var(--ink)}
+.sec-head p{color:var(--muted);margin-top:12px}
+.rule{width:64px;height:3px;background:var(--gold);margin:18px auto 0;border-radius:2px}
+
+/* ---- latest-news grid (#tin-moi) ---- */
+.news-grid{list-style:none;display:grid;gap:26px;grid-template-columns:1fr}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.pcard{position:relative;background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(28,25,23,.06);transition:transform .25s ease,box-shadow .25s ease;display:flex;flex-direction:column}
+.pcard:hover{transform:translateY(-6px);box-shadow:0 20px 40px rgba(28,25,23,.15)}
+.pcard-media{position:relative;aspect-ratio:16/10;overflow:hidden;background:var(--gold-soft)}
+.pcard-media img{width:100%;height:100%;object-fit:cover;transition:transform .45s ease}
+.pcard:hover .pcard-media img{transform:scale(1.07)}
+.date-badge{position:absolute;left:13px;top:13px;background:rgba(28,25,23,.9);color:var(--bg);border-radius:10px;padding:6px 11px;text-align:center;line-height:1.15}
+.date-badge b{display:block;font-family:Georgia,serif;font-size:1.2rem;color:var(--gold)}
+.date-badge small{font-size:.66rem;letter-spacing:.1em;text-transform:uppercase}
+.chip{position:absolute;right:13px;top:13px;background:var(--amber);color:#fff;font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 11px;border-radius:999px}
+.pcard-body{padding:20px 22px 22px;display:flex;flex-direction:column;gap:10px;flex:1}
+.pcard-body h3{font-size:1.1rem}
+.pcard-body h3 a{color:var(--ink);text-decoration:none}
+.pcard-body h3 a:hover{color:var(--amber)}
+.clamp2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:var(--muted);font-size:.9rem}
+.more-link{margin-top:auto;color:var(--amber);text-decoration:none;font-weight:700;font-size:.87rem;letter-spacing:.02em}
+.more-link:hover{color:var(--amber-dk)}
+
+/* ---- day timeline (#tin-theo-ngay) ---- */
+.timeline{list-style:none;border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:0 2px 12px rgba(28,25,23,.05)}
+.tl-row{display:grid;grid-template-columns:92px 1fr auto;gap:20px;align-items:start;padding:24px 26px;background:var(--card)}
+.tl-row:nth-child(even){background:#F5EEE2}
+.tl-date{text-align:center;border-right:1px solid var(--line);padding-right:16px}
+.tl-date b{display:block;font-family:Georgia,serif;font-size:2.15rem;color:var(--amber);line-height:1}
+.tl-date small{display:block;color:var(--muted);font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;margin-top:4px}
+.tl-main h3{font-size:1.06rem;display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.tl-main .dow{display:block;color:var(--muted);font-size:.83rem;margin-top:2px;font-family:-apple-system,"Segoe UI",Roboto,sans-serif;font-weight:400}
+.tl-titles{list-style:none;margin-top:12px;display:grid;gap:6px}
+.tl-titles li{font-size:.89rem;padding-left:14px;position:relative}
+.tl-titles li::before{content:"";position:absolute;left:0;top:.62em;width:6px;height:6px;border-radius:50%;background:var(--gold)}
+.tl-titles a{color:var(--ink);text-decoration:none}
+.tl-titles a:hover{color:var(--amber);text-decoration:underline}
+.tl-count{background:var(--gold-soft);color:var(--amber-dk);border-radius:999px;font-size:.73rem;font-weight:700;padding:2px 11px;letter-spacing:.03em}
+.tl-side{align-self:center}
+.tl-side a{color:var(--amber);font-weight:700;font-size:.86rem;text-decoration:none;white-space:nowrap}
+.tl-side a:hover{color:var(--amber-dk);text-decoration:underline}
+
+/* ---- about (#gioi-thieu) ---- */
+.about-grid{display:grid;gap:44px;grid-template-columns:1fr;align-items:start}
+.about-copy p{color:#4A4038;margin-top:14px}
+.about-copy .lead{font-size:1.05rem;color:var(--ink)}
+.about-list{list-style:none;margin-top:18px;display:grid;gap:8px}
+.about-list li{padding-left:26px;position:relative;color:#4A4038;font-size:.93rem}
+.about-list li::before{content:"\2713";position:absolute;left:0;color:var(--amber);font-weight:700}
+.svc-grid{display:grid;gap:18px;grid-template-columns:repeat(2,1fr)}
+.svc{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px 22px;transition:transform .2s ease,box-shadow .2s ease}
+.svc:hover{transform:translateY(-4px);box-shadow:0 14px 30px rgba(28,25,23,.1)}
+.svc svg{width:36px;height:36px;color:var(--amber)}
+.svc h3{font-size:1.02rem;margin-top:14px}
+.svc p{color:var(--muted);font-size:.85rem;margin-top:6px}
+
+/* ---- stats band ---- */
+.stats{background:linear-gradient(135deg,#92400E 0%,#B45309 70%,#C05F14 100%);color:#FFF6E8;padding:60px 0}
+.stats-grid{display:grid;gap:26px;grid-template-columns:repeat(3,1fr);text-align:center}
+.stat b{display:block;font-family:Georgia,serif;font-size:clamp(1.9rem,4.4vw,2.8rem);color:#FFE3B3}
+.stat span{display:block;font-size:.84rem;letter-spacing:.09em;text-transform:uppercase;margin-top:6px;opacity:.95}
+
+/* ---- contact strip (#lien-he) ---- */
+.contact-card{background:linear-gradient(150deg,#211B15,#1C1917 60%);color:var(--bg);border-radius:22px;padding:52px 46px;display:grid;gap:36px;grid-template-columns:1fr;box-shadow:0 24px 50px rgba(28,25,23,.25)}
+.contact-card h2{font-size:clamp(1.5rem,3vw,2rem);color:#FAF7F2}
+.contact-big{display:inline-block;font-family:Georgia,serif;font-size:clamp(1.7rem,4.6vw,2.7rem);color:var(--gold);text-decoration:none;margin-top:14px;letter-spacing:.02em}
+.contact-big:hover{color:#E8BE72}
+.contact-meta{display:grid;gap:10px;margin-top:22px;color:var(--cream-txt);font-size:.95rem}
+.contact-meta a{color:var(--gold);text-decoration:none}
+.contact-meta a:hover{text-decoration:underline}
+.contact-actions{display:flex;flex-wrap:wrap;gap:14px;align-content:center}
+
+/* ---- footer ---- */
+footer.site{background:#171310;color:#B7A992;padding:48px 0 38px;font-size:.86rem}
+footer.site .wrap{display:grid;gap:13px}
+.f-brand{font-family:Georgia,serif;font-size:1.12rem;color:var(--bg);letter-spacing:.06em}
+.f-brand b{color:var(--gold)}
+footer.site a{color:var(--gold);text-decoration:none}
+footer.site a:hover{text-decoration:underline}
+
+/* ---- daily page ---- */
+.crumbs{padding:20px 0 0;font-size:.83rem;color:var(--muted)}
+.crumbs nav[aria-label] span[aria-current]{color:var(--ink)}
+.crumbs a{color:var(--amber);text-decoration:none}
+.crumbs a:hover{text-decoration:underline}
+.day-hero{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 26px;padding:30px 0 8px}
+.day-num{font-family:Georgia,serif;font-size:clamp(4rem,13vw,6.8rem);line-height:.92;color:var(--amber);letter-spacing:-.01em}
+.day-sub{padding-bottom:10px}
+.day-sub .month{font-family:Georgia,serif;font-size:clamp(1.25rem,3vw,1.7rem);color:var(--ink)}
+.day-sub .dow{color:var(--muted);font-size:.95rem;margin-top:2px}
+.count-badge{align-self:center;background:var(--ink);color:var(--gold);border-radius:999px;padding:9px 20px;font-weight:700;font-size:.86rem;letter-spacing:.03em}
+.post-list{list-style:none;display:grid;gap:22px;margin:34px 0 8px}
+.post-card{display:flex;gap:22px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px;box-shadow:0 2px 12px rgba(28,25,23,.05);transition:transform .2s ease,box-shadow .2s ease}
+.post-card:hover{transform:translateY(-3px);box-shadow:0 16px 34px rgba(28,25,23,.12)}
+.post-thumb{flex:0 0 40%;min-height:180px;border-radius:12px;overflow:hidden;background:var(--gold-soft)}
 .post-thumb img{width:100%;height:100%;object-fit:cover;display:block}
-.post-card h2,.post-card h3{font-size:1.02rem;line-height:1.45}
+.post-body{flex:1;display:flex;flex-direction:column}
+.post-card h2,.post-card h3{font-size:1.18rem}
 .post-card h2 a,.post-card h3 a{color:var(--ink);text-decoration:none}
-.post-card h2 a:hover,.post-card h3 a:hover{color:var(--brand)}
-.meta{font-size:.8rem;color:var(--muted);margin-top:4px}
-.excerpt{font-size:.9rem;color:var(--muted);margin-top:6px}
-.info-block{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--brand);border-radius:12px;padding:20px;margin:24px 0}
-.info-block h2{font-size:1.1rem;color:var(--brand-dark);margin-bottom:8px}
-.cta{display:inline-block;margin-top:12px;background:var(--brand);color:#fff;text-decoration:none;padding:10px 20px;border-radius:8px;font-weight:600}
-.cta:hover{background:var(--brand-dark)}
-footer.site{margin-top:30px;padding:20px 0 34px;color:var(--muted);font-size:.82rem;border-top:1px solid var(--line)}
-@media(min-width:640px){.hero h1{font-size:1.75rem}.post-thumb{flex-basis:160px;height:110px}}
+.post-card h2 a:hover,.post-card h3 a:hover{color:var(--amber)}
+.meta{font-size:.76rem;color:var(--muted);margin-top:8px;letter-spacing:.06em;text-transform:uppercase}
+.excerpt{font-size:.93rem;color:var(--muted);margin-top:9px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.readorig{display:inline-block;margin-top:auto;padding-top:12px;color:var(--amber);font-weight:700;font-size:.87rem;text-decoration:none}
+.readorig:hover{color:var(--amber-dk);text-decoration:underline}
+.day-nav-cards{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:40px 0 14px}
+.dnav{display:block;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 20px;text-decoration:none;transition:border-color .2s ease,transform .2s ease,box-shadow .2s ease}
+.dnav:hover{border-color:var(--amber);transform:translateY(-3px);box-shadow:0 10px 24px rgba(28,25,23,.09)}
+.dnav small{display:block;color:var(--muted);font-size:.71rem;letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px}
+.dnav b{font-family:Georgia,serif;font-size:.98rem;color:var(--ink);font-weight:700}
+.dnav.next{text-align:right}
+.dnav.empty{opacity:.45;pointer-events:none}
+.home-link-row{text-align:center;margin:22px 0 8px}
+.home-link-row a{display:inline-flex;align-items:center;gap:8px;background:var(--card);border:1.5px solid var(--gold);color:var(--amber-dk);font-weight:700;text-decoration:none;padding:12px 26px;border-radius:999px;font-size:.9rem}
+.home-link-row a:hover{background:var(--gold-soft)}
+.contact-mini{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--amber);border-radius:16px;padding:26px 28px;margin:14px 0 48px;display:grid;gap:8px;box-shadow:0 2px 12px rgba(28,25,23,.05)}
+.contact-mini h2{font-size:1.12rem}
+.contact-mini p{color:#4A4038;font-size:.92rem}
+.contact-mini a{color:var(--amber);text-decoration:none;font-weight:600}
+.contact-mini a:hover{text-decoration:underline}
+
+/* ---- responsive ---- */
+@media(min-width:600px){.news-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:720px){.tl-row{grid-template-columns:70px 1fr}.tl-side{grid-column:2;justify-self:start;margin-top:10px}.post-card{flex-direction:column}.post-thumb{flex-basis:auto;min-height:0;aspect-ratio:16/10}}
+@media(min-width:900px){.news-grid{grid-template-columns:repeat(3,1fr)}.about-grid{grid-template-columns:1.05fr 1fr}.contact-card{grid-template-columns:1.4fr 1fr;align-items:center}}
+@media(max-width:420px){.topbar .wrap{gap:10px}.brand{font-size:.88rem}.hotline-btn{padding:8px 14px;font-size:.8rem}.svc-grid{grid-template-columns:1fr}.stats-grid{grid-template-columns:1fr;gap:30px}.day-nav-cards{grid-template-columns:1fr}}
 CSS;
 }
 
-function nhadep_head(string $title, string $description, string $canonical, string $extraHead = ''): string
+/**
+ * Common <head> fragment. $ogImage: safe featured-image URL for og:/twitter: tags.
+ */
+function nhadep_head(string $title, string $description, string $canonical, string $extraHead = '', string $ogImage = ''): string
 {
     $t = nhadep_san($title);
     $d = nhadep_san($description);
     $c = htmlspecialchars($canonical, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $img = nhadep_safe_url($ogImage);
+    $imgTags = '';
+    if ($img !== '') {
+        $alt = nhadep_san(NHADEP_BRAND_NAME . ' — ' . NHADEP_TAGLINE);
+        $imgTags = '<meta property="og:image" content="' . $img . '">\n'
+            . '<meta property="og:image:alt" content="' . $alt . '\">\n'
+            . '<meta name="twitter:image" content="' . $img . '\">\n';
+    }
     return "<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
         . "<title>{$t}</title>\n<meta name=\"description\" content=\"{$d}\">\n"
-        . "<link rel=\"canonical\" href=\"{$c}\">\n"
-        . "<meta property=\"og:type\" content=\"website\">\n<meta property=\"og:site_name\" content=\"Nội thất Đạt Ký\">\n"
-        . "<meta property=\"og:title\" content=\"{$t}\">\n<meta property=\"og:description\" content=\"{$d}\">\n"
-        . "<meta property=\"og:url\" content=\"{$c}\">\n"
-        . "<meta name=\"twitter:card\" content=\"summary\">\n"
-        . "<style>" . nhadep_css() . "</style>\n" . $extraHead;
+        . '<link rel="canonical" href="' . $c . "\">\n"
+        . '<meta property="og:type" content="website">\n'
+        . '<meta property="og:site_name" content="' . nhadep_san(NHADEP_BRAND_NAME) . "\">\n"
+        . '<meta property="og:title" content="' . $t . "\">\n"
+        . '<meta property="og:description" content="' . $d . "\">\n"
+        . '<meta property="og:url" content="' . $c . "\">\n"
+        . $imgTags
+        . '<meta name="twitter:card" content="' . ($img !== '' ? 'summary_large_image' : 'summary') . "\">\n"
+        . '<meta name="twitter:title" content="' . $t . "\">\n"
+        . '<meta name="twitter:description" content="' . $d . "\">\n"
+        . '<style>' . nhadep_css() . '</style>\n' . $extraHead;
 }
 
-function nhadep_header_html(string $brandLink): string
+/**
+ * Sticky top bar shared by all pages.
+ * $isHome=true -> in-page anchors; false -> root-absolute links (daily pages).
+ */
+function nhadep_header_html(bool $isHome): string
 {
-    $b = htmlspecialchars($brandLink, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-    return '<header class="site"><div class="wrap">'
-        . '<a class="brand" href="' . $b . '">Nội thất Đạt Ký</a>'
-        . '<div class="tagline">Thi công nội thất trọn gói tại Nghệ An</div>'
+    $base = $isHome ? '#' : '/#';
+    return '<header class="topbar"><div class="wrap">'
+        . '<a class="brand" href="/' . '" aria-label="' . nhadep_san(NHADEP_BRAND_NAME) . ' — về trang chủ">NỘI THẤT ĐẠT KỲ <b>DK HOME</b></a>'
+        . '<nav class="topnav" aria-label="Điều hướng chính">'
+        . '<a href="' . $base . 'tin-moi">Tin tức</a>'
+        . '<a href="' . $base . 'gioi-thieu">Giới thiệu</a>'
+        . '<a href="' . $base . 'lien-he">Liên hệ</a>'
+        . '</nav>'
+        . '<a class="hotline-btn" href="' . NHADEP_HOTLINE_TEL . '">☎ ' . NHADEP_HOTLINE_TEXT . '</a>'
         . '</div></header>';
 }
 
-function nhadep_footer_html(string $brandLink): string
+function nhadep_footer_html(): string
 {
-    $b = htmlspecialchars($brandLink, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-    $y = date('Y');
+    $y  = date('Y');
+    $b  = nhadep_safe_url(NHADEP_SOURCE_ORIGIN);
+    $ct = nhadep_safe_url(NHADEP_CONTACT_URL);
     return '<footer class="site"><div class="wrap">'
-        . '<p>Nội thất Đạt Ký — Thi công nội thất trọn gói tại Nghệ An.</p>'
-        . '<p>Nguồn tin: <a href="' . $b . '">noithatdatky.com</a> · Trang tĩnh phục vụ nhadepnghean.vn · © ' . $y . '</p>'
+        . '<div class="f-brand">NỘI THẤT ĐẠT KỲ — <b>DK HOME DESIGN</b></div>'
+        . '<p>' . nhadep_san(NHADEP_TAGLINE) . '.</p>'
+        . '<p>Tin tức tổng hợp từ <a href="' . $b . '" rel="noopener">noithatdatky.com</a> — DK Home Design · '
+        . '<a href="' . $ct . '">Liên hệ</a> · <a href="/sitemap.xml">Sitemap</a></p>'
+        . '<p>© ' . $y . ' DK Home Design. Địa chỉ: ' . nhadep_san(NHADEP_ADDRESS) . '.</p>'
         . '</div></footer>';
 }
 
-/** Render ONE post card (<li>). $headingTag: h2 on daily top story, h3 otherwise. */
+/** Shared sanitized-excerpt helper: plain text clamped to $max chars + ellipsis. */
+function nhadep_excerpt_text(array $post, int $max = 240): string
+{
+    $text = trim(strip_tags(html_entity_decode($post['excerpt'], ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+    if ($text === '') {
+        $text = trim(strip_tags(html_entity_decode($post['title'], ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+    }
+    $cut = mb_substr($text, 0, $max);
+    return nhadep_san(rtrim($cut) . (mb_strlen($text) > $max ? '…' : ''));
+}
+
+/** Alt text for a post's featured image, derived from its title. */
+function nhadep_img_alt(array $post): string
+{
+    return nhadep_san(mb_substr(trim(strip_tags(html_entity_decode($post['title'], ENT_QUOTES | ENT_HTML5, 'UTF-8'))), 0, 120));
+}
+
+/**
+ * Lazy cover <img> with decoding=async + intrinsic width/height when known.
+ * Returns '' when the post has no (allowlisted) image.
+ */
+function nhadep_cover_img(array $post): string
+{
+    $src = nhadep_safe_url($post['thumb']);
+    if ($src === '') {
+        return '';
+    }
+    $w   = max(0, (int) ($post['thumb_w'] ?? 0));
+    $h   = max(0, (int) ($post['thumb_h'] ?? 0));
+    $dim = ($w > 0 && $h > 0) ? ' width="' . $w . '" height="' . $h . '"' : ' width="640" height="400"';
+    return '<img src="' . $src . '" alt="' . nhadep_img_alt($post) . '" loading="lazy" decoding="async"' . $dim . '>';
+}
+
+/** Landing-grid card (#tin-moi): 16:10 cover, date badge, chip, clamp, CTA to original post. */
+function nhadep_post_grid_card(array $post): string
+{
+    $title  = nhadep_san(trim(strip_tags(html_entity_decode($post['title'], ENT_QUOTES | ENT_HTML5, 'UTF-8'))));
+    $link   = nhadep_safe_url($post['link']);
+    $linked = static fn (string $inner): string => $link !== ''
+        ? '<a href="' . $link . '" rel="noopener">' . $inner . '</a>'
+        : $inner;
+
+    $media = '<div class="pcard-media">';
+    $img   = nhadep_cover_img($post);
+    if ($img !== '') {
+        $media .= $img;
+    }
+    $dk = nhadep_day_key($post['date_gmt']) ?? '';
+    $dt = DateTimeImmutable::createFromFormat('!Y-m-d', $dk, nhadep_tz());
+    $dN = $dt instanceof DateTimeImmutable ? $dt->format('j') : '–';
+    $mN = $dt instanceof DateTimeImmutable ? 'Tháng ' . $dt->format('m') : '';
+    $media .= '<div class="date-badge"><b>' . $dN . '</b><small>' . nhadep_san($mN) . '</small></div>'
+        . '<span class="chip">Tin tức</span></div>';
+
+    return '<article class="pcard">' . $media
+        . '<div class="pcard-body"><h3>' . $linked($title) . '</h3>'
+        . '<p class="clamp2">' . nhadep_excerpt_text($post) . '</p>'
+        . '<a class="more-link" href="' . $link . '" rel="noopener">Xem bài viết &rarr;</a>'
+        . '</div></article>';
+}
+
+/**
+ * Daily-page article card (<li class="post-card">): image left ~40% on
+ * desktop, stacked on mobile; links point at the ORIGINAL post.
+ * $headingTag: h2 on the top story, h3 otherwise.
+ */
 function nhadep_post_card(array $post, string $headingTag = 'h3'): string
 {
-    $title   = nhadep_san($post['title']);
-    $excerpt = mb_substr(trim(strip_tags(html_entity_decode($post['excerpt'], ENT_QUOTES | ENT_HTML5, 'UTF-8'))), 0, 240);
-    $excerpt = nhadep_san(rtrim($excerpt) . (mb_strlen($excerpt) >= 240 ? '…' : ''));
-    $time    = nhadep_time_label($post['date_local']);
-    $link    = nhadep_safe_url($post['link']);
+    $title     = nhadep_san(trim(strip_tags(html_entity_decode($post['title'], ENT_QUOTES | ENT_HTML5, 'UTF-8'))));
+    $time      = nhadep_time_label($post['date_local']);
+    $link      = nhadep_safe_url($post['link']);
     $titleHtml = $link !== ''
         ? '<a href="' . $link . '" rel="noopener">' . $title . '</a>'
         : $title;
     $thumbHtml = '';
-    $src = nhadep_safe_url($post['thumb']);
-    if ($src !== '') {
-        $alt = nhadep_san(mb_substr(trim(strip_tags(html_entity_decode($post['title'], ENT_QUOTES | ENT_HTML5, 'UTF-8'))), 0, 120));
-        $thumbHtml = '<div class="post-thumb"><img src="' . $src . '" alt="' . $alt . '" loading="lazy" width="320" height="220"></div>';
+    $img = nhadep_cover_img($post);
+    if ($img !== '') {
+        $thumbHtml = '<div class="post-thumb">' . $img . '</div>';
     }
-    return '<li class="post-card">' . $thumbHtml
+    $origCta = $link !== ''
+        ? '<a class="readorig" href="' . $link . '" rel="noopener">Đọc bài gốc tại noithatdatky.com &rarr;</a>'
+        : '';
+    return '<article class="post-card">' . $thumbHtml
         . '<div class="post-body"><' . $headingTag . '>' . $titleHtml . '</' . $headingTag . '>'
-        . '<div class="meta">Đăng lúc ' . $time . ' (' . nhadep_day_label(nhadep_day_key($post['date_gmt']) ?? '') . ')</div>'
-        . '<p class="excerpt">' . $excerpt . '</p></div></li>';
+        . '<div class="meta">Đăng lúc ' . $time . ' · ' . nhadep_day_label(nhadep_day_key($post['date_gmt']) ?? '') . '</div>'
+        . '<p class="excerpt">' . nhadep_excerpt_text($post) . '</p>' . $origCta . '</div></article>';
 }
 
 /**
- * Render a single daily digest page.
- * $prevDay/$nextDay are day keys or null; map keys => url.
+ * Render a single daily digest page (magazine layout).
+ * $prevDay/$nextDay: ['key' => Y-m-d] or null; rel=prev -> older, rel=next -> newer.
  */
 function nhadep_render_daily_page(
     string $dayKey,
@@ -586,50 +847,120 @@ function nhadep_render_daily_page(
     ?array $prevDay,
     ?array $nextDay
 ): string {
-    $label      = nhadep_day_label($dayKey);
-    $canonical  = NHADEP_CANONICAL . 'tin-tuc/' . $dayKey . '/';
-    $desc       = 'Tổng hợp tin tức nội thất ngày ' . $dayKey . ' từ Nội thất Đạt Ký — thi công nội thất trọn gói tại Nghệ An.';
-    $firstTitle = nhadep_san(mb_substr(strip_tags(html_entity_decode($dayPosts[0]['title'], ENT_QUOTES | ENT_HTML5, 'UTF-8')), 0, 70));
+    $label     = nhadep_day_label($dayKey);
+    $canonical = NHADEP_CANONICAL . 'tin-tuc/' . $dayKey . '/';
+    $count     = count($dayPosts);
+
+    $dt = DateTimeImmutable::createFromFormat('!Y-m-d', $dayKey, nhadep_tz());
+    $dN = $dt instanceof DateTimeImmutable ? $dt->format('d') : $dayKey;
+    $mo = $dt instanceof DateTimeImmutable ? (int) $dt->format('n') : 0;
+    $yN = $dt instanceof DateTimeImmutable ? $dt->format('Y') : '';
+    $dows = [1 => 'Thứ Hai', 2 => 'Thứ Ba', 3 => 'Thứ Tư', 4 => 'Thứ Năm', 5 => 'Thứ Sáu', 6 => 'Thứ Bảy', 7 => 'Chủ Nhật'];
+    $dow  = ($dt instanceof DateTimeImmutable && isset($dows[(int) $dt->format('N')]))
+        ? $dows[(int) $dt->format('N')] : '';
+    $ddmmyyyy = $dt instanceof DateTimeImmutable ? $dt->format('d-m-Y') : $dayKey;
+
+    $desc = 'Tổng hợp ' . $count . ' tin tức nội thất ngày ' . $ddmmyyyy . ' từ ' . NHADEP_BRAND_NAME
+        . ' — ' . NHADEP_TAGLINE . '.';
+
+    // JSON-LD: CollectionPage + one BlogPosting per article (links to originals).
+    $graph = [[
+        '@type'      => 'CollectionPage',
+        '@id'        => $canonical . '#collectionpage',
+        'url'        => $canonical,
+        'name'       => 'Tin tức nội thất ngày ' . $ddmmyyyy,
+        'inLanguage' => 'vi',
+        'isPartOf'   => ['@id' => NHADEP_CANONICAL . '#website'],
+        'publisher'  => ['@type' => 'Organization', 'name' => NHADEP_BRAND_NAME, 'url' => NHADEP_SOURCE_ORIGIN],
+    ]];
+    foreach ($dayPosts as $p) {
+        $item = [
+            '@type'            => 'BlogPosting',
+            'headline'         => trim(strip_tags(html_entity_decode($p['title'], ENT_QUOTES | ENT_HTML5, 'UTF-8'))),
+            'url'              => $p['link'],
+            'mainEntityOfPage' => $p['link'],
+            'datePublished'    => $p['date_gmt'] . '+00:00',
+            'inLanguage'       => 'vi',
+            'author'           => ['@type' => 'Organization', 'name' => NHADEP_BRAND_NAME],
+        ];
+        $imgUrl = html_entity_decode(nhadep_safe_url($p['thumb']), ENT_QUOTES, 'UTF-8');
+        if ($imgUrl !== '') {
+            $item['image'] = $imgUrl;
+        }
+        $graph[] = $item;
+    }
+    $extra = '<script type="application/ld+json">'
+        . json_encode(['@context' => 'https://schema.org', '@graph' => $graph], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+        . '</script>';
 
     $items = '';
     foreach ($dayPosts as $i => $post) {
         $items .= nhadep_post_card($post, $i === 0 ? 'h2' : 'h3') . "\n";
     }
 
+    $navCard = static function (string $rel, string $smallTxt, string $key) use ($dows): string {
+        $d = DateTimeImmutable::createFromFormat('!Y-m-d', $key, nhadep_tz());
+        $txt = $d instanceof DateTimeImmutable
+            ? $d->format('d/m/Y') . ' · ' . ($dows[(int) $d->format('N')] ?? '')
+            : $key;
+        $cls = $rel === 'next' ? ' dnav next' : ' dnav';
+        return '<a class="dnav' . $cls . '" href="../' . $key . '/" rel="' . $rel . '">'
+            . '<small>' . $smallTxt . '</small><b>' . nhadep_san($txt) . '</b></a>';
+    };
     $prevHtml = $prevDay !== null
-        ? '<a href="../' . $prevDay['key'] . '/" rel="prev">&larr; ' . nhadep_day_label($prevDay['key']) . '</a>'
-        : '<span></span>';
+        ? $navCard('prev', '&larr; Ngày cũ hơn', $prevDay['key'])
+        : '<div class="dnav empty"><small>&larr; Ngày cũ hơn</small><b>—</b></div>';
     $nextHtml = $nextDay !== null
-        ? '<a href="../' . $nextDay['key'] . '/" rel="next">' . nhadep_day_label($nextDay['key']) . ' &rarr;</a>'
-        : '<span></span>';
+        ? $navCard('next', 'Ngày mới hơn &rarr;', $nextDay['key'])
+        : '<div class="dnav empty next"><small>Ngày mới hơn &rarr;</small><b>—</b></div>';
 
-    $cta = htmlspecialchars($contactUrl, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $cta   = htmlspecialchars($contactUrl, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $email = nhadep_san(NHADEP_EMAIL);
+    $tel   = NHADEP_HOTLINE_TEL;
 
     return '<!DOCTYPE html>' . "\n" . '<html lang="vi">' . "\n<head>\n"
-        . nhadep_head('Tin tức ngày ' . $dayKey . ' — Nội thất Đạt Ký', $desc, $canonical)
+        . nhadep_head('Tin tức ngày ' . $ddmmyyyy . ' — ' . NHADEP_BRAND_SHORT, $desc, $canonical, $extra, $dayPosts[0]['thumb'] ?? '')
         . "</head>\n<body>\n"
-        . nhadep_header_html(NHADEP_CANONICAL)
+        . nhadep_header_html(false)
         . '<main class="wrap">'
-        . '<section class="hero"><h1>Tin tức nội thất ngày ' . nhadep_san($label) . '</h1>'
-        . '<p>Cập nhật ' . count($dayPosts) . ' bài viết mới nhất từ Nội thất Đạt Ký. Bài nổi bật: ' . $firstTitle . '</p></section>'
-        . '<ul class="post-list">' . "\n" . $items . '</ul>'
-        . '<section class="info-block"><h2>Giới thiệu Nội thất Đạt Ký</h2>'
-        . '<p>Nội thất Đạt Ký là đơn vị thiết kế và thi công nội thất trọn gói tại Nghệ An — from phòng khách, phòng ngủ đến nội thất văn phòng, với xưởng sản xuất trực tiếp giúp tối ưu chi phí cho khách hàng tại Nghĩa Đàn, Yên Thành, Vinh và các khu vực lân cận.</p>'
-        . '<a class="cta" href="' . $cta . '" rel="noopener">Liên hệ tư vấn &amp; báo giá</a></section>'
-        . '<nav class="day-nav" aria-label="Điều hướng theo ngày">' . $prevHtml . $nextHtml . '</nav>'
+        . '<nav class="crumbs" aria-label="Breadcrumb"><a href="/">Trang chủ</a> &rsaquo; <a href="/#tin-moi">Tin tức</a> &rsaquo; <span aria-current="page">Ngày ' . $ddmmyyyy . '</span></nav>'
+        . '<h1 class="sr-only">Tin tức nội thất ngày ' . $ddmmyyyy . ' — ' . nhadep_san(NHADEP_BRAND_SHORT) . '</h1>'
+        . '<section class="day-hero" aria-label="Ngày ' . $ddmmyyyy . '">'
+        . '<div class="day-num">' . $dN . '</div>'
+        . '<div class="day-sub"><span class="month">Tháng ' . str_pad((string) $mo, 2, '0', STR_PAD_LEFT) . ', ' . $yN . '</span>'
+        . '<div class="dow">' . nhadep_san($dow) . '</div></div>'
+        . '<span class="count-badge">' . $count . ' bài viết</span>'
+        . '</section>'
+        . '<div class="post-list">' . "\n" . $items . '</div>'
+        . '<nav class="day-nav-cards" aria-label="Điều hướng theo ngày">' . $prevHtml . $nextHtml . '</nav>'
+        . '<div class="home-link-row"><a href="/">&larr; Về trang chủ</a></div>'
+        . '<section class="contact-mini" id="lien-he" aria-label="Thông tin liên hệ">'
+        . '<h2>Liên hệ ' . nhadep_san(NHADEP_BRAND_SHORT) . ' — DK Home Design</h2>'
+        . '<p>Hotline: <a href="' . $tel . '">' . NHADEP_HOTLINE_TEXT . '</a></p>'
+        . '<p>Email: <a href="mailto:' . $email . '">' . $email . '</a></p>'
+        . '<p>Địa chỉ: ' . nhadep_san(NHADEP_ADDRESS) . '</p>'
+        . '<p><a href="' . $cta . '" rel="noopener">Truy cập noithatdatky.com &rarr;</a></p>'
+        . '</section>'
         . '</main>'
-        . nhadep_footer_html(NHADEP_SOURCE_ORIGIN)
+        . nhadep_footer_html()
         . "\n</body>\n</html>\n";
 }
 
 /**
- * Render the landing page listing ALL days newest-first.
- * $days: ordered assoc [dayKey => ['count' => n, 'first_title' => esc]].
- * $allPostCount: total posts represented.
+ * Render the premium landing page.
+ * $days: newest-first [dayKey => ['count','first_title','posts'=>[['title','link'],..]]].
+ * $latestPosts: flat newest-first post list (index slices the first 6).
+ * $heroImage: raw featured-image URL of the newest post ('' -> gradient-only hero).
  */
-function nhadep_render_index_page(array $days, int $allPostCount, string $contactUrl): string
-{
-    $desc = 'Kho tin tức nội thất theo từng ngày từ Nội thất Đạt Ký — thi công nội thất trọn gói tại Nghệ An.';
+function nhadep_render_index_page(
+    array $days,
+    int $allPostCount,
+    string $contactUrl,
+    array $latestPosts = [],
+    string $heroImage = ''
+): string {
+    $desc = 'Cổng tin tức nội thất hằng ngày từ ' . NHADEP_BRAND_NAME . ' — ' . NHADEP_TAGLINE . '.';
+
     $extra = '<script type="application/ld+json">'
         . json_encode([
             '@context' => 'https://schema.org',
@@ -638,9 +969,14 @@ function nhadep_render_index_page(array $days, int $allPostCount, string $contac
                     '@type' => 'WebSite',
                     '@id'   => NHADEP_CANONICAL . '#website',
                     'url'   => NHADEP_CANONICAL,
-                    'name'  => 'Nội thất Đạt Ký — Tin tức nội thất Nghệ An',
+                    'name'  => NHADEP_BRAND_SHORT . ' — Tin tức nội thất Nghệ An & Hà Tĩnh',
                     'inLanguage' => 'vi',
-                    'publisher'  => ['@type' => 'Organization', 'name' => 'Nội thất Đạt Ký'],
+                    'publisher'  => [
+                        '@type' => 'Organization',
+                        'name'  => NHADEP_BRAND_NAME,
+                        'url'   => NHADEP_SOURCE_ORIGIN,
+                        'logo'  => ['@type' => 'ImageObject', 'url' => NHADEP_LOGO_URL],
+                    ],
                 ],
                 [
                     '@type' => 'ItemList',
@@ -662,33 +998,121 @@ function nhadep_render_index_page(array $days, int $allPostCount, string $contac
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
         . '</script>';
 
-    $cards = '';
-    foreach (nhadep_index_items($days) as $row) {
-        $cards .= '<li class="post-card"><div class="post-body">'
-            . '<h3><a href="tin-tuc/' . $row['key'] . '/">Tin tức ngày ' . $row['name'] . '</a></h3>'
-            . '<div class="meta">' . $row['count'] . ' bài viết</div>'
-            . '<p class="excerpt">' . $row['teaser'] . '</p></div></li>' . "\n";
-    }
+    /* ---- HERO ---- */
+    $heroImg  = nhadep_safe_url($heroImage);
+    $bgStyle  = $heroImg !== '' ? ' style="background-image:url(\'' . $heroImg . '\')"' : '';
+    $heroHtml = '<section id="hero" class="hero" aria-label="Giới thiệu">'
+        . '<div class="hero-bg"' . $bgStyle . ' role="img" aria-label="Không gian nội thất ' . nhadep_san(NHADEP_BRAND_SHORT) . '"></div>'
+        . '<div class="hero-scrim" aria-hidden="true"></div>'
+        . '<div class="hero-inner">'
+        . '<span class="kicker">CỔNG THÔNG TIN NỘI THẤT</span>'
+        . '<h1>Không gian sống đẳng cấp — Cập nhật mỗi ngày</h1>'
+        . '<p class="sub">' . nhadep_san(NHADEP_TAGLINE) . '. Theo dõi kinh nghiệm thiết kế, mẫu nội thất và dự án thi công thực tế được tổng hợp mỗi ngày.</p>'
+        . '<div class="cta-row">'
+        . '<a class="btn btn-outline" href="#tin-moi">Đọc tin mới nhất</a>'
+        . '<a class="btn btn-solid" href="' . NHADEP_HOTLINE_TEL . '">&#9742; Hotline ' . NHADEP_HOTLINE_TEXT . '</a>'
+        . '</div>'
+        . '<div class="trust-row"><span>Thi công trọn gói</span><span>Bảo hành dài hạn</span><span>Thiết kế miễn phí</span></div>'
+        . '</div></section>';
 
-    $cta = htmlspecialchars($contactUrl, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    /* ---- #tin-moi: 6 newest posts ---- */
+    $cards = '';
+    foreach (array_slice($latestPosts, 0, 6) as $post) {
+        $cards .= nhadep_post_grid_card($post) . "\n";
+    }
+    $newsSection = '<section id="tin-moi" class="band"><div class="wrap">'
+        . '<div class="sec-head"><span class="sec-kicker">Tin tức</span><h2>Tin tức mới nhất</h2>'
+        . '<p>Những bài viết chuyên sâu về thiết kế và thi công nội thất, cập nhật liên tục từ noithatdatky.com.</p><span class="rule"></span></div>'
+        . ($cards !== '' ? '<div class="news-grid">' . "\n" . $cards . '</div>' : '')
+        . '</div></section>';
+
+    /* ---- #tin-theo-ngay: timeline of ALL days, newest-first ---- */
+    $dows = [1 => 'Thứ Hai', 2 => 'Thứ Ba', 3 => 'Thứ Tư', 4 => 'Thứ Năm', 5 => 'Thứ Sáu', 6 => 'Thứ Bảy', 7 => 'Chủ Nhật'];
+    $timeline = '';
+    foreach (nhadep_index_items($days) as $row) {
+        $dt = DateTimeImmutable::createFromFormat('!Y-m-d', $row['key'], nhadep_tz());
+        $dN = $dt instanceof DateTimeImmutable ? $dt->format('j') : $row['key'];
+        $mN = $dt instanceof DateTimeImmutable ? 'Tháng ' . $dt->format('m') : '';
+        $dw = ($dt instanceof DateTimeImmutable && isset($dows[(int) $dt->format('N')])) ? $dows[(int) $dt->format('N')] : '';
+
+        $titles = '';
+        foreach (($days[$row['key']]['posts'] ?? []) as $p) {
+            $t = nhadep_san(trim(strip_tags(html_entity_decode((string) $p['title'], ENT_QUOTES | ENT_HTML5, 'UTF-8'))));
+            $l = nhadep_safe_url((string) $p['link']);
+            $titles .= '<li>' . ($l !== '' ? '<a href="' . $l . '" rel="noopener">' . $t . '</a>' : $t) . '</li>';
+        }
+        $timeline .= '<li class="tl-row">'
+            . '<div class="tl-date"><b>' . $dN . '</b><small>' . nhadep_san($mN) . '</small></div>'
+            . '<div class="tl-main"><h3>Tin ngày ' . nhadep_san($dw) . '<span class="tl-count">' . $row['count'] . ' bài</span></h3>'
+            . '<span class="dow">' . nhadep_san($row['name']) . '</span>'
+            . ($titles !== '' ? '<ul class="tl-titles">' . $titles . '</ul>' : '')
+            . '</div>'
+            . '<div class="tl-side"><a href="tin-tuc/' . $row['key'] . '/">Xem trang ngày &rarr;</a></div>'
+            . '</li>' . "\n";
+    }
+    $timelineSection = '<section id="tin-theo-ngay" class="band alt"><div class="wrap">'
+        . '<div class="sec-head"><span class="sec-kicker">Lưu trữ</span><h2>Hành trình tin theo ngày</h2>'
+        . '<p>Toàn bộ ' . count($days) . ' ngày cập nhật, mới nhất đầu tiên.</p><span class="rule"></span></div>'
+        . '<ol class="timeline">' . "\n" . $timeline . '</ol>'
+        . '</div></section>';
+
+    /* ---- #gioi-thieu: split about + service cards ---- */
+    $icon = static fn (string $paths): string => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' . $paths . '</svg>';
+    $svc = static fn (string $iconSvg, string $name, string $txt): string =>
+        '<div class="svc">' . $iconSvg . '<h3>' . $name . '</h3><p>' . $txt . '</p></div>';
+    $aboutSection = '<section id="gioi-thieu" class="band"><div class="wrap"><div class="about-grid">'
+        . '<div class="about-copy"><span class="sec-kicker">Giới thiệu</span>'
+        . '<h2>' . nhadep_san(NHADEP_BRAND_NAME) . '</h2>'
+        . '<p class="lead">Đơn vị thiết kế &amp; thi công nội thất trọn gói với xưởng sản xuất trực tiếp, đồng hành cùng khách hàng tại Nghệ An và Hà Tĩnh.</p>'
+        . '<p>Chúng tôi kiến tạo không gian sống tinh tế, tối ưu công năng và chi phí — từ concept, bản vẽ chi tiết đến lắp đặt hoàn thiện, bàn giao đúng tiến độ.</p>'
+        . '<ul class="about-list"><li>Xưởng sản xuất trực tiếp — giá tốt hơn 15–25%</li><li>Đội ngũ kiến trúc sư &amp; thợ lành nghề</li><li>Bảo hành dài hạn, hỗ trợ trọn đời sản phẩm</li></ul>'
+        . '</div>'
+        . '<div class="svc-grid">'
+        . $svc($icon('<path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>'), 'Nội thất nhà phố', 'Thiết kế thông minh cho mặt tiền hẹp, tối ưu từng mét vuông.')
+        . $svc($icon('<path d="M3 21h18"/><path d="M6 21V9l6-5 6 5v12"/><path d="M9 21v-4h6v4"/><circle cx="17.5" cy="5.5" r="1.5"/>'), 'Biệt thự &amp; Villa', 'Không gian sang trọng, đồng bộ phong cách từ ngoài vào trong.')
+        . $svc($icon('<rect x="5" y="3" width="14" height="18" rx="1"/><path d="M9 7h2m2 0h2M9 11h2m2 0h2M9 15h2m2 0h2"/><path d="M10 21v-3h4v3"/>'), 'Nội thất căn hộ', 'Giải pháp lưu trữ thông minh, hiện đại cho căn hộ đô thị.')
+        . $svc($icon('<path d="M3 9h18"/><path d="M4 9v11m16-11v11"/><path d="M7 13h10"/><path d="M12 9V5h7"/>'), 'Nội thất văn phòng', 'Công năng hiệu suất cao, thẩm mỹ chuẩn thương hiệu doanh nghiệp.')
+        . '</div></div></div></section>';
+
+    /* ---- stats band (real numbers) ---- */
+    $statsSection = '<section class="stats" aria-label="Thống kê"><div class="wrap"><div class="stats-grid">'
+        . '<div class="stat"><b>' . $allPostCount . '+</b><span>Bài viết chuyên sâu</span></div>'
+        . '<div class="stat"><b>' . count($days) . '</b><span>Ngày cập nhật liên tục</span></div>'
+        . '<div class="stat"><b>2</b><span>Tỉnh Nghệ An – Hà Tĩnh phục vụ</span></div>'
+        . '</div></div></section>';
+
+    /* ---- #lien-he contact strip ---- */
+    $cta   = htmlspecialchars($contactUrl, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $email = nhadep_san(NHADEP_EMAIL);
+    $originLink = nhadep_safe_url(NHADEP_SOURCE_ORIGIN);
+    $contactSection = '<section id="lien-he" class="band"><div class="wrap">'
+        . '<div class="contact-card">'
+        . '<div class="contact-info"><span class="sec-kicker">Liên hệ</span>'
+        . '<h2>Nhận tư vấn &amp; báo giá miễn phí</h2>'
+        . '<a class="contact-big" href="' . NHADEP_HOTLINE_TEL . '">' . NHADEP_HOTLINE_TEXT . '</a>'
+        . '<div class="contact-meta">'
+        . '<span>&#9993; <a href="mailto:' . $email . '">' . $email . '</a></span>'
+        . '<span>&#128205; ' . nhadep_san(NHADEP_ADDRESS) . '</span>'
+        . '</div></div>'
+        . '<div class="contact-actions">'
+        . '<a class="btn btn-solid" href="' . NHADEP_HOTLINE_TEL . '">&#9742; Gọi ngay hotline</a>'
+        . '<a class="btn btn-outline" href="' . $originLink . '" rel="noopener">Truy cập noithatdatky.com</a>'
+        . '<a class="more-link" style="color:var(--gold)" href="' . $cta . '">Hoặc xem trang Liên hệ &rarr;</a>'
+        . '</div></div></div></section>';
 
     return '<!DOCTYPE html>' . "\n" . '<html lang="vi">' . "\n<head>\n"
-        . nhadep_head('Tin tức nội thất theo ngày — Nội thất Đạt Ký Nghệ An', $desc, NHADEP_CANONICAL, $extra)
+        . nhadep_head('Tin tức nội thất mỗi ngày — ' . NHADEP_BRAND_SHORT . ' Nghệ An & Hà Tĩnh', $desc, NHADEP_CANONICAL, $extra, $heroImage)
         . "</head>\n<body>\n"
-        . nhadep_header_html(NHADEP_CANONICAL)
-        . '<main class="wrap">'
-        . '<section class="hero"><h1>Nội thất Đạt Ký — Thi công nội thất trọn gói tại Nghệ An</h1>'
-        . '<p>Chuyên thiết kế và thi công nội thất trọn gói cho nhà ở, căn hộ và văn phòng tại Nghệ An. '
-        . 'Trang tổng hợp tin tức nội thất đăng hàng ngày — tổng cộng ' . $allPostCount . ' bài viết trong '
-        . count($days) . ' ngày.</p>'
-        . '<a class="cta" href="' . $cta . '" rel="noopener">Nhận tư vấn miễn phí</a></section>'
-        . '<ul class="post-list">' . "\n" . $cards . '</ul>'
-        . '<section class="info-block"><h2>Về chúng tôi</h2>'
-        . '<p>Xưởng sản xuất nội thất trực tiếp, đội ngũ thợ lành nghề, bảo hành dài hạn. '
-        . 'Xem các bài viết theo ngày bên trên hoặc liên hệ trực tiếp để được khảo sát và báo cáo giá chi tiết.</p>'
-        . '<a class="cta" href="' . $cta . '" rel="noopener">Liên hệ tư vấn &amp; báo giá</a></section>'
+        . nhadep_header_html(true)
+        . '<main>'
+        . $heroHtml
+        . $newsSection
+        . $timelineSection
+        . $aboutSection
+        . $statsSection
+        . $contactSection
         . '</main>'
-        . nhadep_footer_html(NHADEP_SOURCE_ORIGIN)
+        . nhadep_footer_html()
         . "\n</body>\n</html>\n";
 }
 
@@ -880,6 +1304,14 @@ function run_main(array $argv): int
         $dayKeys = array_keys($groups); // newest-first
         nhadep_log('Số ngày có bài viết: ' . count($dayKeys));
 
+        // Flat newest-first list shared by index grid + RSS feed.
+        $latestAll = [];
+        foreach ($dayKeys as $key) {
+            foreach ($groups[$key] as $p) {
+                $latestAll[] = $p;
+            }
+        }
+
         // ---- Idempotency state ------------------------------------------
         $state = nhadep_read_state($outRoot);
 
@@ -910,6 +1342,9 @@ function run_main(array $argv): int
                 $dayMetaNewestFirst[$key] = [
                     'count'       => count($dayPosts),
                     'first_title' => $dayPosts[0]['title'],
+                    'posts'       => array_map(static fn (array $p): array => [
+                        'title' => $p['title'], 'link' => $p['link'],
+                    ], $dayPosts),
                 ];
                 $lastmods['days'][$key] = nhadep_lastmod_of_day($dayPosts);
                 continue;
@@ -931,6 +1366,9 @@ function run_main(array $argv): int
             $dayMetaNewestFirst[$key] = [
                 'count'       => count($dayPosts),
                 'first_title' => $dayPosts[0]['title'],
+                'posts'       => array_map(static fn (array $p): array => [
+                    'title' => $p['title'], 'link' => $p['link'],
+                ], $dayPosts),
             ];
             $lastmods['days'][$key] = nhadep_lastmod_of_day($dayPosts);
         }
@@ -945,7 +1383,13 @@ function run_main(array $argv): int
         // ---- Landing page / sitemap / robots / feed (always regenerated) --
         $totalPosts = array_sum(array_map(static fn ($m) => (int) $m['count'], $dayMetaNewestFirst));
 
-        nhadep_write_file($outRoot, 'index.html', nhadep_render_index_page($dayMetaNewestFirst, $totalPosts, $contactUrl));
+        nhadep_write_file($outRoot, 'index.html', nhadep_render_index_page(
+            $dayMetaNewestFirst,
+            $totalPosts,
+            $contactUrl,
+            $latestAll,
+            $posts[0]['thumb'] ?? ''
+        ));
         nhadep_log('Đã cập nhật index.html');
 
         $newestGmt = $posts[0]['date_gmt'];
@@ -960,15 +1404,7 @@ function run_main(array $argv): int
         nhadep_write_file($outRoot, 'robots.txt', nhadep_render_robots());
         nhadep_log('Đã cập nhật sitemap.xml, robots.txt');
 
-        $latest = [];
-        foreach ($dayKeys as $key) { // newest-first
-            foreach ($groups[$key] as $p) {
-                $latest[] = $p;
-                if (count($latest) >= 20) {
-                    break 2;
-                }
-            }
-        }
+        $latest = array_slice($latestAll, 0, 20); // newest-first
         nhadep_write_file($outRoot, 'feed.xml', nhadep_render_feed($latest, $contactUrl));
         nhadep_log('Đã cập nhật feed.xml (' . count($latest) . ' mục mới nhất)');
 

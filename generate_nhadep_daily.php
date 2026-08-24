@@ -31,6 +31,7 @@ const NHADEP_TZ            = 'Asia/Ho_Chi_Minh';
 const NHADEP_PER_PAGE      = 100;
 const NHADEP_MAX_PAGES     = 60;          // hard safety cap for pagination loops
 const NHADEP_HTTP_TIMEOUT  = 25;          // seconds
+const NHADEP_WEB_KEY       = 'datky-nhadep-gen-2026'; // webhook trigger: ?key=<NHADEP_WEB_KEY>
 
 /* -------------------------------------------------------------------------
  * PHP 7.4 polyfills (Hostinger CLI default is PHP 7.4; web is 8.x).
@@ -1005,7 +1006,17 @@ if (!defined('NHADEP_NO_RUN')) {
     if (PHP_SAPI === 'cli') {
         exit(run_main($argv));
     }
-    // Included from web: refuse to run anything.
+    // Web trigger with secret key: generate static pages into this directory.
+    // Usage: https://nhadepnghean.vn/generate_nhadep_daily.php?key=datky-nhadep-gen-2026[&force=1]
+    $webKey = isset($_GET['key']) ? (string) $_GET['key'] : '';
+    if ($webKey !== '' && hash_equals(NHADEP_WEB_KEY, $webKey)) {
+        $fakeArgv = array('generate_nhadep_daily.php', '--out=' . __DIR__);
+        if (isset($_GET['force'])) {
+            $fakeArgv[] = '--force';
+        }
+        header('Content-Type: text/plain; charset=utf-8');
+        exit(run_main($fakeArgv));
+    }
     http_response_code(403);
-    exit('Chỉ chạy qua CLI.');
+    exit('Chi chay qua CLI.');
 }

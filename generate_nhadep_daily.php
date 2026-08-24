@@ -33,6 +33,22 @@ const NHADEP_MAX_PAGES     = 60;          // hard safety cap for pagination loop
 const NHADEP_HTTP_TIMEOUT  = 25;          // seconds
 
 /* -------------------------------------------------------------------------
+ * PHP 7.4 polyfills (Hostinger CLI default is PHP 7.4; web is 8.x).
+ * ---------------------------------------------------------------------- */
+if (!function_exists('str_starts_with')) {
+    function str_starts_with(string $haystack, string $needle): bool
+    {
+        return $needle === '' || strpos($haystack, $needle) === 0;
+    }
+}
+if (!function_exists('str_contains')) {
+    function str_contains(string $haystack, string $needle): bool
+    {
+        return $needle === '' || strpos($haystack, $needle) !== false;
+    }
+}
+
+/* -------------------------------------------------------------------------
  * HTTP layer — named functions so tests can override behaviour via
  * $GLOBALS['NHADEP_FETCH_OVERRIDE'] / $GLOBALS['NHADEP_STATUS_OVERRIDE'].
  * ---------------------------------------------------------------------- */
@@ -42,7 +58,8 @@ const NHADEP_HTTP_TIMEOUT  = 25;          // seconds
  * Returns decoded array on success, false on any failure.
  * Tests may set $GLOBALS['NHADEP_FETCH_OVERRIDE'] = fn(string $url): array|false;
  */
-function nhadep_fetch_json(string $url): array|false
+/** @return array|false decoded array on success, false on failure */
+function nhadep_fetch_json(string $url)
 {
     if (isset($GLOBALS['NHADEP_FETCH_OVERRIDE']) && is_callable($GLOBALS['NHADEP_FETCH_OVERRIDE'])) {
         return ($GLOBALS['NHADEP_FETCH_OVERRIDE'])($url);

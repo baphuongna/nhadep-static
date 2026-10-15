@@ -417,6 +417,75 @@ function nhadep_run_render_tests(callable $check): void
         str_contains($fallbackDaily, '<meta property="og:image:width" content="300">')
         && str_contains($fallbackDaily, '<meta property="og:image:height" content="224">'));
 
+    /* =====================================================================
+     * S5 (NHADEP-S5-URLFIX): image URLs are escaped EXACTLY ONCE at every
+     * emit point; og:image dims describe the URL actually chosen.
+     * ================================================================== */
+    $ampUrl = 'https://noithatdatky.com/wp-content/uploads/2026/10/anh.webp?v=1&size=large';
+    $ampEsc = str_replace('&', '&amp;', $ampUrl);
+    $ampDbl = str_replace('&', '&amp;amp;', $ampUrl);
+    $ampPost = $fixture[0];
+    $ampPost['thumb_large']   = $ampUrl;
+    $ampPost['thumb_large_w'] = 1024;
+    $ampPost['thumb_large_h'] = 765;
+
+    $ampDaily = nhadep_render_daily_page(
+        $dayKeyA,
+        $slugA,
+        [$ampPost, $fixture[1]],
+        $contact,
+        null,
+        null
+    );
+    $check('s5: daily has no double-escaped &amp;amp;',
+        !str_contains($ampDaily, '&amp;amp;'));
+    $check('s5: daily og:image escapes & exactly once',
+        str_contains($ampDaily, 'property="og:image" content="' . $ampEsc . '"')
+        && !str_contains($ampDaily, 'property="og:image" content="' . $ampDbl . '"'));
+    $check('s5: daily twitter:image escapes & exactly once',
+        str_contains($ampDaily, 'name="twitter:image" content="' . $ampEsc . '"'));
+    $check('s5: daily hero background escapes & exactly once',
+        str_contains($ampDaily, "background-image:url('" . $ampEsc . "')")
+        && !str_contains($ampDaily, "background-image:url('" . $ampDbl . "')"));
+
+    $ampIndex = nhadep_render_index_page(
+        $days,
+        count($latestPosts),
+        $contact,
+        $latestPosts,
+        $ampUrl,
+        1024,
+        765
+    );
+    $check('s5: index has no double-escaped &amp;amp;',
+        !str_contains($ampIndex, '&amp;amp;'));
+    $check('s5: index og:image escapes & exactly once',
+        str_contains($ampIndex, 'property="og:image" content="' . $ampEsc . '"')
+        && !str_contains($ampIndex, 'property="og:image" content="' . $ampDbl . '"'));
+    $check('s5: index hero background escapes & exactly once',
+        str_contains($ampIndex, "background-image:url('" . $ampEsc . "')")
+        && !str_contains($ampIndex, "background-image:url('" . $ampDbl . "')"));
+
+    /* ---- S5: allowlist still enforced for hero/og ---- */
+    $evilPost = $fixture[0];
+    $evilPost['thumb_large'] = 'https://evil.com/x.jpg';
+    $evilDaily = nhadep_render_daily_page($dayKeyA, $slugA, [$evilPost], $contact, null, null);
+    $check('s5: non-allowlisted large URL rejected in hero/og',
+        nhadep_hero_src($evilPost) === '' && !str_contains($evilDaily, 'evil.com'));
+
+    /* ---- S5: chosen-URL dims; no medium fallback when large dims unknown ---- */
+    $noDimsPost = $fixture[0];
+    $noDimsPost['thumb_large']   = $largeUrl; // large URL chosen ...
+    $noDimsPost['thumb_large_w'] = 0;        // ... but its dims are unknown
+    $noDimsPost['thumb_large_h'] = 0;
+    $check('s5: hero_dims does not borrow medium dims for a large URL',
+        nhadep_hero_dims($noDimsPost) === [0, 0]);
+    $noDimsDaily = nhadep_render_daily_page($dayKeyA, $slugA, [$noDimsPost], $contact, null, null);
+    $check('s5: large URL + unknown dims emits no og:image:width/height',
+        str_contains($noDimsDaily, 'property="og:image" content="' . $largeUrl . '"')
+        && !str_contains($noDimsDaily, 'og:image:width')
+        && !str_contains($noDimsDaily, 'og:image:height'));
+
     /* ---- S3 invariant: a large-only change must not move the day hash ---- */
     $basePosts    = $postsA;
     $mutatedPosts = $postsA;

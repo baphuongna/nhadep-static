@@ -276,10 +276,12 @@ function nhadep_san(string $raw): string
 }
 
 /**
- * Only allow URLs that start with https://noithatdatky.com/
- * Returns the escaped URL for embedding, or '' when rejected.
+ * Only allow URLs that start with https://noithatdatky.com/.
+ * Returns the RAW (unescaped) URL, or '' when rejected. Emit points must
+ * escape it exactly once via nhadep_safe_url() so a URL containing '&' is
+ * never double-escaped.
  */
-function nhadep_safe_url(?string $url): string
+function nhadep_raw_url(?string $url): string
 {
     if (!is_string($url) || $url === '') {
         return '';
@@ -292,7 +294,16 @@ function nhadep_safe_url(?string $url): string
     if (preg_match('/[\s"\'<>\\\\]/', $url) || str_contains(strtolower($url), 'javascript:')) {
         return '';
     }
-    return htmlspecialchars($url, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    return $url;
+}
+
+/**
+ * Allowlisted URL escaped once for safe HTML embedding, or '' when rejected.
+ */
+function nhadep_safe_url(?string $url): string
+{
+    $raw = nhadep_raw_url($url);
+    return $raw === '' ? '' : htmlspecialchars($raw, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 }
 
 /* -------------------------------------------------------------------------
@@ -907,7 +918,8 @@ CSS;
 }
 
 /**
- * Common <head> fragment. $ogImage: safe featured-image URL for og:/twitter: tags.
+ * Common <head> fragment. $ogImage: RAW featured-image URL for og:/twitter:
+ * tags; it is escaped exactly once here via nhadep_safe_url().
  * $ogImageW/$ogImageH: intrinsic dimensions of $ogImage; when both > 0, emit
  * og:image:width/height so social cards render at the correct ratio.
  */
@@ -1066,7 +1078,7 @@ function nhadep_hero_src(array $post): string
 {
     $large = (string) ($post['thumb_large'] ?? '');
     $src   = $large !== '' ? $large : (string) ($post['thumb'] ?? '');
-    return nhadep_safe_url($src);
+    return nhadep_raw_url($src);
 }
 
 /**
@@ -1075,13 +1087,20 @@ function nhadep_hero_src(array $post): string
  */
 function nhadep_hero_dims(array $post): array
 {
-    $w = (int) ($post['thumb_large_w'] ?? 0);
-    $h = (int) ($post['thumb_large_h'] ?? 0);
-    if ($w <= 0 || $h <= 0) {
-        $w = (int) ($post['thumb_w'] ?? 0);
-        $h = (int) ($post['thumb_h'] ?? 0);
+    // Mirror nhadep_hero_src()'s source choice: whenever a large URL string is
+    // present, report the large dimensions (0,0 when unknown) rather than
+    // describing the large image with the medium image's dimensions.
+    $large = (string) ($post['thumb_large'] ?? '');
+    if ($large !== '') {
+        return [
+            max(0, (int) ($post['thumb_large_w'] ?? 0)),
+            max(0, (int) ($post['thumb_large_h'] ?? 0)),
+        ];
     }
-    return [max(0, $w), max(0, $h)];
+    return [
+        max(0, (int) ($post['thumb_w'] ?? 0)),
+        max(0, (int) ($post['thumb_h'] ?? 0)),
+    ];
 }
 
 /**
@@ -1184,7 +1203,7 @@ function nhadep_render_daily_page(
     $heroTitle = nhadep_san(trim(strip_tags(html_entity_decode($primary['title'] ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8'))));
     $heroImg   = nhadep_hero_src($primary);
     [$heroW, $heroH] = nhadep_hero_dims($primary);
-    $heroBg    = $heroImg !== '' ? ' style="background-image:url(\'' . $heroImg . '\')"' : '';
+    $heroBg    = $heroImg !== '' ? ' style="background-image:url(\'' . nhadep_safe_url($heroImg) . '\')"' : '';
     $icon = static fn (string $paths): string => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' . $paths . '</svg>';
     $svc  = static fn (string $iSvg, string $name, string $txt): string =>
         '<div class="svc">' . $iSvg . '<h3>' . $name . '</h3><p>' . $txt . '</p></div>';

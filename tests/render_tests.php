@@ -228,4 +228,41 @@ function nhadep_run_render_tests(callable $check): void
         }
     }
     $check('index: links to every day slug', $indexOk);
+
+    /* =====================================================================
+     * BR-ND-001 regression: HTML rendered via nhadep_head() must contain
+     * REAL newlines between tags — never the two characters '\\'+'n'.
+     * (Historical bug: "\n" written inside single-quoted PHP strings is a
+     * literal backslash-n, gluing meta/link tags onto one line and breaking
+     * the <head> markup. Same for '\' before '"' in og:image:alt.)
+     * ================================================================== */
+    $literalBackslashN = '\\' . 'n'; // two chars: backslash + n
+    $headOf = static function (string $html): string {
+        $start = strpos($html, '<head>');
+        $end   = strpos($html, '</head>');
+
+        return ($start === false || $end === false) ? '' : substr($html, $start, $end - $start);
+    };
+
+    $check('regress BR-ND-001: daily page has no literal backslash-n',
+        !str_contains($daily, $literalBackslashN));
+    $check('regress BR-ND-001: index page has no literal backslash-n',
+        !str_contains($index, $literalBackslashN));
+    $check('regress BR-ND-001: archive page has no literal backslash-n',
+        !str_contains($archive, $literalBackslashN));
+
+    foreach (['daily' => $daily, 'index' => $index, 'archive' => $archive] as $label => $html) {
+        $head = $headOf($html);
+        $check("regress BR-ND-001: {$label} <head> contains <title",
+            str_contains($head, '<title'));
+        $check("regress BR-ND-001: {$label} <head> contains rel=\"canonical\"",
+            str_contains($head, 'rel="canonical"'));
+        $check("regress BR-ND-001: {$label} <head> contains name=\"description\"",
+            str_contains($head, 'name="description"'));
+    }
+
+    // Daily passes the first post's thumb as ogImage (fixture post 101 has one);
+    // index/archive render without ogImage — no og:image assert for them.
+    $check('regress BR-ND-001: daily <head> contains property=\"og:image\" (featured thumb)',
+        str_contains($headOf($daily), 'property="og:image"'));
 }

@@ -751,17 +751,17 @@ function nhadep_head(string $title, string $description, string $canonical, stri
     $imgTags = '';
     if ($img !== '') {
         $alt = nhadep_san(NHADEP_BRAND_NAME . ' — ' . NHADEP_TAGLINE);
-        $imgTags = '<meta property="og:image" content="' . $img . '">\n'
-            . '<meta property="og:image:alt" content="' . $alt . '\">\n'
-            . '<meta name="twitter:image" content="' . $img . '\">\n';
+        $imgTags = '<meta property="og:image" content="' . $img . '">' . "\n"
+            . '<meta property="og:image:alt" content="' . $alt . '">' . "\n"
+            . '<meta name="twitter:image" content="' . $img . '">' . "\n";
     }
     return "<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
-        . '<link rel="preconnect" href="https://fonts.googleapis.com">\n'
-        . '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n'
-        . '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&amp;family=Be+Vietnam+Pro:wght@400;500;600&amp;display=swap">\n'
+        . '<link rel="preconnect" href="https://fonts.googleapis.com">' . "\n"
+        . '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' . "\n"
+        . '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&amp;family=Be+Vietnam+Pro:wght@400;500;600&amp;display=swap">' . "\n"
         . "<title>{$t}</title>\n<meta name=\"description\" content=\"{$d}\">\n"
         . '<link rel="canonical" href="' . $c . "\">\n"
-        . '<meta property="og:type" content="website">\n'
+        . '<meta property="og:type" content="website">' . "\n"
         . '<meta property="og:site_name" content="' . nhadep_san(NHADEP_BRAND_NAME) . "\">\n"
         . '<meta property="og:title" content="' . $t . "\">\n"
         . '<meta property="og:description" content="' . $d . "\">\n"
@@ -770,7 +770,7 @@ function nhadep_head(string $title, string $description, string $canonical, stri
         . '<meta name="twitter:card" content="' . ($img !== '' ? 'summary_large_image' : 'summary') . "\">\n"
         . '<meta name="twitter:title" content="' . $t . "\">\n"
         . '<meta name="twitter:description" content="' . $d . "\">\n"
-        . '<style>' . nhadep_css() . '</style>\n' . $extraHead;
+        . '<style>' . nhadep_css() . '</style>' . "\n" . $extraHead;
 }
 
 /**

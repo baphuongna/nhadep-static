@@ -228,6 +228,13 @@ function nhadep_run_render_tests(callable $check): void
         }
     }
     $check('sitemap: <loc> for every day == canonical/<slug>/', $sitemapLocsOk);
+    $check('sitemap: archive hub /tin-tuc/ has a <url> entry',
+        str_contains($sitemap, '<loc>' . NHADEP_CANONICAL . 'tin-tuc/</loc>'));
+    $check('sitemap: archive lastmod == newest day lastmod',
+        (bool) preg_match(
+            '#<loc>' . preg_quote(NHADEP_CANONICAL . 'tin-tuc/', '#') . '</loc>\s*<lastmod>' . preg_quote(max(array_values($lastmods['days'])), '#') . '</lastmod>#',
+            $sitemap
+        ));
     $check('sitemap: well-formed XML (skipped only if no XML extension)',
         nhadep_render_xml_ok($sitemap));
 
@@ -272,6 +279,15 @@ function nhadep_run_render_tests(callable $check): void
         }
     }
     $check('archive: links to every day slug', $archiveOk);
+    $check('archive: og:image = newest day featured thumb',
+        str_contains($archive, 'property="og:image" content="' . $days[$dayKeyA]['thumb'] . '">'));
+    $check('archive: og:image falls back to logo when newest thumb empty',
+        str_contains(
+            nhadep_render_archive([$dayKeyB => nhadep_day_meta($postsB, $slugB)]),
+            'property="og:image" content="' . NHADEP_LOGO_URL . '">'
+        ));
+    $check('archive: twitter card upgraded to summary_large_image',
+        str_contains($archive, 'name="twitter:card" content="summary_large_image"'));
 
     $index = nhadep_render_index_page($days, count($latestPosts), $contact, $latestPosts, '');
     $indexOk = true;
@@ -333,10 +349,18 @@ function nhadep_run_render_tests(callable $check): void
             str_contains($head, 'rel="canonical"'));
         $check("regress BR-ND-001: {$label} <head> contains name=\"description\"",
             str_contains($head, 'name="description"'));
+        $check("{$label} <head> has og:locale vi_VN",
+            str_contains($head, '<meta property="og:locale" content="vi_VN">'));
+        $check("{$label} <head> has RSS feed autodiscovery link",
+            str_contains(
+                $head,
+                '<link rel="alternate" type="application/rss+xml" title="'
+                    . 'Tin tức nội thất — Nội thất Đạt Ký' . '" href="' . NHADEP_FEED_URL . '">'
+            ));
     }
 
     // Daily passes the first post's thumb as ogImage (fixture post 101 has one);
-    // index/archive render without ogImage — no og:image assert for them.
+    // archive uses the newest day thumb (asserted above); index may pass none.
     $check('regress BR-ND-001: daily <head> contains property=\"og:image\" (featured thumb)',
         str_contains($headOf($daily), 'property="og:image"'));
 }

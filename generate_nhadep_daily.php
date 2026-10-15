@@ -42,6 +42,8 @@ const NHADEP_HOTLINE_TEL   = 'tel:+84922355368';
 const NHADEP_EMAIL         = 'noithatdatky@gmail.com';
 const NHADEP_ADDRESS       = 'Số 68 Quán Lề, Khu đô thị Vườn Xanh, Diễn Châu, Nghệ An';
 const NHADEP_LOGO_URL      = 'https://noithatdatky.com/wp-content/uploads/2020/11/noi-that-dat-ky-logo.png';
+const NHADEP_FEED_TITLE    = 'Tin tức nội thất — Nội thất Đạt Ký';
+const NHADEP_FEED_URL      = NHADEP_CANONICAL . 'feed.xml';
 
 /* -------------------------------------------------------------------------
  * PHP 7.4 polyfills (Hostinger CLI default is PHP 7.4; web is 8.x).
@@ -822,8 +824,10 @@ function nhadep_head(string $title, string $description, string $canonical, stri
         . '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&amp;family=Be+Vietnam+Pro:wght@400;500;600&amp;display=swap">' . "\n"
         . "<title>{$t}</title>\n<meta name=\"description\" content=\"{$d}\">\n"
         . '<link rel="canonical" href="' . $c . "\">\n"
+        . '<link rel="alternate" type="application/rss+xml" title="' . nhadep_san(NHADEP_FEED_TITLE) . '" href="' . NHADEP_FEED_URL . '">' . "\n"
         . '<meta property="og:type" content="website">' . "\n"
         . '<meta property="og:site_name" content="' . nhadep_san(NHADEP_BRAND_NAME) . "\">\n"
+        . '<meta property="og:locale" content="vi_VN">' . "\n"
         . '<meta property="og:title" content="' . $t . "\">\n"
         . '<meta property="og:description" content="' . $d . "\">\n"
         . '<meta property="og:url" content="' . $c . "\">\n"
@@ -1346,6 +1350,12 @@ function nhadep_render_archive(array $days): string
             . '<b>' . nhadep_san($name) . '</b>'
             . '<small>' . (int) $meta['count'] . ' bài viết</small></a>';
     }
+    // og:image: featured thumb of the newest day (days arrive newest-first);
+    // fall back to the brand logo so the archive always carries an image.
+    $ogImage = (string) (($days !== [] ? ($days[array_key_first($days)]['thumb'] ?? '') : ''));
+    if ($ogImage === '') {
+        $ogImage = NHADEP_LOGO_URL;
+    }
     $desc  = 'Lưu trữ toàn bộ các trang tin tức nội thất theo ngày từ ' . NHADEP_BRAND_NAME . '.';
     $extra = '<script type="application/ld+json">'
         . json_encode([
@@ -1360,7 +1370,7 @@ function nhadep_render_archive(array $days): string
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
         . '</script>';
     return '<!DOCTYPE html>' . "\n" . '<html lang="vi">' . "\n<head>\n"
-        . nhadep_head('Lưu trữ tin tức — ' . NHADEP_BRAND_SHORT, $desc, NHADEP_CANONICAL . 'tin-tuc/', $extra)
+        . nhadep_head('Lưu trữ tin tức — ' . NHADEP_BRAND_SHORT, $desc, NHADEP_CANONICAL . 'tin-tuc/', $extra, $ogImage)
         . "</head>\n<body>\n"
         . nhadep_header_html(false)
         . '<main class="wrap">' 
@@ -1381,6 +1391,12 @@ function nhadep_render_sitemap(array $days, array $lastmods): string
         . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
     $xml .= "\t<url>\n\t\t<loc>" . NHADEP_CANONICAL . "</loc>\n\t\t<lastmod>"
          . htmlspecialchars($lastmods['index'] ?? $today, ENT_QUOTES) . "</lastmod>\n\t</url>\n";
+    // Archive hub /tin-tuc/ — rebuilt whenever any day changes, so its
+    // lastmod tracks the newest day lastmod (order-independent: max of all).
+    $dayLms   = array_values($lastmods['days'] ?? []);
+    $archiveLm = $dayLms !== [] ? max($dayLms) : ($lastmods['index'] ?? $today);
+    $xml .= "\t<url>\n\t\t<loc>" . NHADEP_CANONICAL . "tin-tuc/</loc>\n\t\t<lastmod>"
+         . htmlspecialchars($archiveLm, ENT_QUOTES) . "</lastmod>\n\t</url>\n";
     foreach (array_keys($days) as $key) {
         $s  = $days[$key]['slug'] ?? $key;
         $lm = $lastmods['days'][$key] ?? $today;
@@ -1401,7 +1417,7 @@ function nhadep_render_feed(array $latestPosts, string $contactUrl): string
     $esc = static fn (string $s): string => htmlspecialchars($s, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
         . '<rss version="2.0"><channel>' . "\n"
-        . '<title>' . $esc('Tin tức nội thất — Nội thất Đạt Ký') . '</title>' . "\n"
+        . '<title>' . $esc(NHADEP_FEED_TITLE) . '</title>' . "\n"
         . '<link>' . $esc(NHADEP_CANONICAL) . '</link>' . "\n"
         . '<description>' . $esc('Tin tức nội thất theo ngày từ Nội thất Đạt Ký — thi công nội thất trọn gói tại Nghệ An.') . '</description>' . "\n"
         . '<language>vi</language>' . "\n";

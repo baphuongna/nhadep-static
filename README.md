@@ -48,11 +48,12 @@ php -S localhost:8080 -t out                             # xem thử tại http:
 ### 3.1. Chạy test
 
 ```bash
-php tests/run_tests.php    # 42 test, không cần thư viện ngoài; exit 0 = pass hết
+php tests/run_tests.php    # 64 test, không cần thư viện ngoài; exit 0 = pass hết
 ```
 
 Test phủ: escaping/URL allowlist, quy đổi giờ GMT→Việt Nam cho khóa ngày, sinh slug, nhãn ngày/giờ
 (tiếng Việt), nhóm bài theo ngày, hash idempotency, **biên ghi file không thoát khỏi thư mục out**,
+**render offline từ fixture cố định** (title/canonical/JSON-LD; sitemap/feed well-formed),
 state round-trip, và CLI `--help`.
 
 ## 4. Các tham số CLI của generator

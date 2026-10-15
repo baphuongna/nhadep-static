@@ -16,7 +16,8 @@ declare(strict_types=1);
 
 /**
  * Fixed fixture posts. Every post carries the full normalized key set:
- * id, link, title, excerpt, thumb, thumb_w, thumb_h, date_gmt, date_local.
+ * id, link, title, excerpt, thumb, thumb_w, thumb_h,
+ * thumb_large, thumb_large_w, thumb_large_h, date_gmt, date_local.
  *
  * Post 101 is a late-evening GMT post (18:30Z) whose VN (+7) day is the next
  * calendar day — used to pin the timezone bucketing through the render path.
@@ -32,6 +33,9 @@ function nhadep_render_fixture_posts(): array
             'thumb'       => 'https://noithatdatky.com/wp-content/uploads/2026/10/chung-cu.jpg',
             'thumb_w'     => 1200,
             'thumb_h'     => 800,
+            'thumb_large'   => 'https://noithatdatky.com/wp-content/uploads/2026/10/chung-cu-1024x765.jpg',
+            'thumb_large_w' => 1024,
+            'thumb_large_h' => 765,
             'date_gmt'    => '2026-10-13T18:30:00',
             'date_local'  => '2026-10-14T01:30:00',
         ],
@@ -43,6 +47,9 @@ function nhadep_render_fixture_posts(): array
             'thumb'       => 'https://noithatdatky.com/wp-content/uploads/2026/10/villa.jpg',
             'thumb_w'     => 1024,
             'thumb_h'     => 768,
+            'thumb_large'   => 'https://noithatdatky.com/wp-content/uploads/2026/10/villa-1024x768.jpg',
+            'thumb_large_w' => 1024,
+            'thumb_large_h' => 768,
             'date_gmt'    => '2026-10-13T20:00:00',
             'date_local'  => '2026-10-14T03:00:00',
         ],
@@ -54,6 +61,9 @@ function nhadep_render_fixture_posts(): array
             'thumb'       => '',
             'thumb_w'     => 0,
             'thumb_h'     => 0,
+            'thumb_large'   => '',
+            'thumb_large_w' => 0,
+            'thumb_large_h' => 0,
             'date_gmt'    => '2026-10-12T02:00:00',
             'date_local'  => '2026-10-12T09:00:00',
         ],
@@ -137,6 +147,23 @@ function nhadep_run_render_tests(callable $check): void
         str_contains($daily, 'href="/' . $slugB . '/" rel="prev"'));
     $check('daily: missing next day renders the disabled nav',
         str_contains($daily, '<div class="dnav empty next">'));
+
+    /* =====================================================================
+     * S3 (NHADEP-S3-IMAGES): hero + og:image use the LARGE size; cards keep
+     * the medium size; og:image dims are emitted when known.
+     * ================================================================== */
+    $mediumUrl = $fixture[0]['thumb'];
+    $largeUrl  = $fixture[0]['thumb_large'];
+
+    $check('daily: og:image points at the LARGE size',
+        str_contains($daily, 'property="og:image" content="' . $largeUrl . '"'));
+    $check('daily: hero background uses the LARGE size',
+        str_contains($daily, "background-image:url('" . $largeUrl . "')"));
+    $check('daily: card <img> still uses the MEDIUM size',
+        str_contains($daily, '<img src="' . $mediumUrl . '"'));
+    $check('daily: og:image:width/height emitted from the large dims',
+        str_contains($daily, '<meta property="og:image:width" content="1024">')
+        && str_contains($daily, '<meta property="og:image:height" content="765">'));
 
     $ld = null;
     if (preg_match('#<script type="application/ld\+json">(.*?)</script>#s', $daily, $m)) {
@@ -322,13 +349,17 @@ function nhadep_run_render_tests(callable $check): void
         }
     }
     $check('archive: links to every day slug', $archiveOk);
-    $check('archive: og:image = newest day featured thumb',
-        str_contains($archive, 'property="og:image" content="' . $days[$dayKeyA]['thumb'] . '">'));
+    $check('archive: og:image = newest day featured LARGE image',
+        str_contains($archive, 'property="og:image" content="' . $days[$dayKeyA]['thumb_large'] . '"'));
     $check('archive: og:image falls back to logo when newest thumb empty',
         str_contains(
             nhadep_render_archive([$dayKeyB => nhadep_day_meta($postsB, $slugB)]),
             'property="og:image" content="' . NHADEP_LOGO_URL . '">'
         ));
+    $check('archive: day meta carries thumb_large + dims',
+        ($days[$dayKeyA]['thumb_large'] ?? '') === $largeUrl
+        && (int) ($days[$dayKeyA]['thumb_large_w'] ?? 0) === 1024
+        && (int) ($days[$dayKeyA]['thumb_large_h'] ?? 0) === 765);
     $check('archive: twitter card upgraded to summary_large_image',
         str_contains($archive, 'name="twitter:card" content="summary_large_image"'));
 
@@ -340,6 +371,60 @@ function nhadep_run_render_tests(callable $check): void
         }
     }
     $check('index: links to every day slug', $indexOk);
+
+    // S3: homepage hero + og:image must use the newest post's LARGE size.
+    [$heroW, $heroH] = nhadep_hero_dims($fixture[0]);
+    $indexLarge = nhadep_render_index_page(
+        $days,
+        count($latestPosts),
+        $contact,
+        $latestPosts,
+        nhadep_hero_src($fixture[0]),
+        $heroW,
+        $heroH
+    );
+    $check('index: og:image points at the newest post LARGE size',
+        str_contains($indexLarge, 'property="og:image" content="' . $largeUrl . '"'));
+    $check('index: hero background uses the LARGE size',
+        str_contains($indexLarge, "background-image:url('" . $largeUrl . "')"));
+    $check('index: og:image:width/height emitted from the large dims',
+        str_contains($indexLarge, '<meta property="og:image:width" content="1024">')
+        && str_contains($indexLarge, '<meta property="og:image:height" content="765">'));
+
+    /* ---- S3 fallback: post with only a medium image ---- */
+    $mediumOnly = $fixture[2];
+    $mediumOnly['thumb']      = 'https://noithatdatky.com/wp-content/uploads/2026/10/go-300x224.jpg';
+    $mediumOnly['thumb_w']    = 300;
+    $mediumOnly['thumb_h']    = 224;
+    $mediumOnly['thumb_large']   = '';
+    $mediumOnly['thumb_large_w'] = 0;
+    $mediumOnly['thumb_large_h'] = 0;
+    $check('fallback: hero_src returns the medium URL when no large size',
+        nhadep_hero_src($mediumOnly) === $mediumOnly['thumb']);
+    $check('fallback: hero_dims returns the medium dims when no large size',
+        nhadep_hero_dims($mediumOnly) === [300, 224]);
+    $fallbackDaily = nhadep_render_daily_page(
+        $dayKeyB,
+        $slugB,
+        [$mediumOnly],
+        $contact,
+        null,
+        null
+    );
+    $check('fallback: daily og:image uses the medium URL (not empty)',
+        str_contains($fallbackDaily, 'property="og:image" content="' . $mediumOnly['thumb'] . '"'));
+    $check('fallback: daily og:image dims come from the medium size',
+        str_contains($fallbackDaily, '<meta property="og:image:width" content="300">')
+        && str_contains($fallbackDaily, '<meta property="og:image:height" content="224">'));
+
+    /* ---- S3 invariant: a large-only change must not move the day hash ---- */
+    $basePosts    = $postsA;
+    $mutatedPosts = $postsA;
+    $mutatedPosts[0]['thumb_large']   = 'https://noithatdatky.com/wp-content/uploads/2026/10/other-1536x1152.jpg';
+    $mutatedPosts[0]['thumb_large_w'] = 1536;
+    $mutatedPosts[0]['thumb_large_h'] = 1152;
+    $check('invariant: changing thumb_large does NOT change nhadep_day_hash',
+        nhadep_day_hash($basePosts) === nhadep_day_hash($mutatedPosts));
 
     /* ---- JSON-LD: LocalBusiness entity; breadcrumb stays off the homepage ---- */
     $indexGraph = $graphOf($index);

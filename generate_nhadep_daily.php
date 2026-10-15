@@ -484,6 +484,12 @@ function nhadep_fetch_all_posts(int $maxPosts, bool $verbose): array
             $thumb = '';
             $tw    = 0;
             $th    = 0;
+            // Large variant for hero backgrounds + og:image. Ladder:
+            // large -> full -> medium_large -> medium (safe fallback).
+            // NOT part of nhadep_day_hash; cards keep the medium $thumb.
+            $thumbLarge = '';
+            $tlw        = 0;
+            $tlh        = 0;
             if (isset($p['_embedded']['wp:featuredmedia'][0]) && is_array($p['_embedded']['wp:featuredmedia'][0])) {
                 $fm   = $p['_embedded']['wp:featuredmedia'][0];
                 $size = $fm['media_details']['sizes']['medium']
@@ -499,18 +505,35 @@ function nhadep_fetch_all_posts(int $maxPosts, bool $verbose): array
                     $tw    = (int) ($fm['media_details']['width'] ?? 0);
                     $th    = (int) ($fm['media_details']['height'] ?? 0);
                 }
+                $sizeL = $fm['media_details']['sizes']['large']
+                    ?? $fm['media_details']['sizes']['full']
+                    ?? $fm['media_details']['sizes']['medium_large']
+                    ?? null;
+                if (is_array($sizeL)) {
+                    $thumbLarge = is_string($sizeL['source_url'] ?? null) ? $sizeL['source_url'] : '';
+                    $tlw        = (int) ($sizeL['width'] ?? 0);
+                    $tlh        = (int) ($sizeL['height'] ?? 0);
+                }
+                if ($thumbLarge === '') {
+                    $thumbLarge = $thumb;
+                    $tlw        = $tw;
+                    $tlh        = $th;
+                }
             }
 
             $posts[] = [
-                'id'         => $id,
-                'link'       => $link,
-                'title'      => is_string($title) ? $title : '',
-                'excerpt'    => is_string($excerpt) ? $excerpt : '',
-                'thumb'      => is_string($thumb) ? $thumb : '',
-                'thumb_w'    => $tw,
-                'thumb_h'    => $th,
-                'date_gmt'   => $dateGmt,
-                'date_local' => is_string($p['date'] ?? null) ? $p['date'] : '',
+                'id'            => $id,
+                'link'          => $link,
+                'title'         => is_string($title) ? $title : '',
+                'excerpt'       => is_string($excerpt) ? $excerpt : '',
+                'thumb'         => is_string($thumb) ? $thumb : '',
+                'thumb_w'       => $tw,
+                'thumb_h'       => $th,
+                'thumb_large'   => is_string($thumbLarge) ? $thumbLarge : '',
+                'thumb_large_w' => $tlw,
+                'thumb_large_h' => $tlh,
+                'date_gmt'      => $dateGmt,
+                'date_local'    => is_string($p['date'] ?? null) ? $p['date'] : '',
             ];
 
             if ($maxPosts > 0 && count($posts) >= $maxPosts) {
@@ -573,6 +596,9 @@ function nhadep_day_meta(array $dayPosts, string $slug): array
         'url'         => NHADEP_CANONICAL . $slug . '/',
         'first_title' => $dayPosts[0]['title'] ?? '',
         'thumb'       => $dayPosts[0]['thumb'] ?? '',
+        'thumb_large' => $dayPosts[0]['thumb_large'] ?? '',
+        'thumb_large_w' => (int) ($dayPosts[0]['thumb_large_w'] ?? 0),
+        'thumb_large_h' => (int) ($dayPosts[0]['thumb_large_h'] ?? 0),
         'posts'       => array_map(static fn (array $p): array => [
             'title' => $p['title'], 'link' => $p['link'],
         ], $dayPosts),
@@ -882,8 +908,10 @@ CSS;
 
 /**
  * Common <head> fragment. $ogImage: safe featured-image URL for og:/twitter: tags.
+ * $ogImageW/$ogImageH: intrinsic dimensions of $ogImage; when both > 0, emit
+ * og:image:width/height so social cards render at the correct ratio.
  */
-function nhadep_head(string $title, string $description, string $canonical, string $extraHead = '', string $ogImage = ''): string
+function nhadep_head(string $title, string $description, string $canonical, string $extraHead = '', string $ogImage = '', int $ogImageW = 0, int $ogImageH = 0): string
 {
     $t = nhadep_san($title);
     $d = nhadep_san($description);
@@ -892,7 +920,13 @@ function nhadep_head(string $title, string $description, string $canonical, stri
     $imgTags = '';
     if ($img !== '') {
         $alt = nhadep_san(NHADEP_BRAND_NAME . ' — ' . NHADEP_TAGLINE);
+        $dimTags = '';
+        if ($ogImageW > 0 && $ogImageH > 0) {
+            $dimTags = '<meta property="og:image:width" content="' . $ogImageW . '">' . "\n"
+                . '<meta property="og:image:height" content="' . $ogImageH . '">' . "\n";
+        }
         $imgTags = '<meta property="og:image" content="' . $img . '">' . "\n"
+            . $dimTags
             . '<meta property="og:image:alt" content="' . $alt . '">' . "\n"
             . '<meta name="twitter:image" content="' . $img . '">' . "\n";
     }
@@ -1025,6 +1059,32 @@ function nhadep_img_alt(array $post): string
 }
 
 /**
+ * Hero/og:image URL for a post: large variant when available, else medium.
+ * Returns '' when neither is an allowlisted URL.
+ */
+function nhadep_hero_src(array $post): string
+{
+    $large = (string) ($post['thumb_large'] ?? '');
+    $src   = $large !== '' ? $large : (string) ($post['thumb'] ?? '');
+    return nhadep_safe_url($src);
+}
+
+/**
+ * Intrinsic [width, height] of the hero/og:image, falling back to the medium
+ * dimensions when the large size is unknown. Returns [0, 0] when nothing known.
+ */
+function nhadep_hero_dims(array $post): array
+{
+    $w = (int) ($post['thumb_large_w'] ?? 0);
+    $h = (int) ($post['thumb_large_h'] ?? 0);
+    if ($w <= 0 || $h <= 0) {
+        $w = (int) ($post['thumb_w'] ?? 0);
+        $h = (int) ($post['thumb_h'] ?? 0);
+    }
+    return [max(0, $w), max(0, $h)];
+}
+
+/**
  * Lazy cover <img> with decoding=async + intrinsic width/height when known.
  * Returns '' when the post has no (allowlisted) image.
  */
@@ -1122,7 +1182,8 @@ function nhadep_render_daily_page(
 
     $primary   = $dayPosts[0] ?? ['title' => '', 'thumb' => ''];
     $heroTitle = nhadep_san(trim(strip_tags(html_entity_decode($primary['title'] ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8'))));
-    $heroImg   = nhadep_safe_url($primary['thumb'] ?? '');
+    $heroImg   = nhadep_hero_src($primary);
+    [$heroW, $heroH] = nhadep_hero_dims($primary);
     $heroBg    = $heroImg !== '' ? ' style="background-image:url(\'' . $heroImg . '\')"' : '';
     $icon = static fn (string $paths): string => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' . $paths . '</svg>';
     $svc  = static fn (string $iSvg, string $name, string $txt): string =>
@@ -1196,7 +1257,7 @@ function nhadep_render_daily_page(
     $tel   = NHADEP_HOTLINE_TEL;
 
     return '<!DOCTYPE html>' . "\n" . '<html lang="vi">' . "\n<head>\n"
-        . nhadep_head('Tin tức ngày ' . $ddmmyyyy . ' — ' . NHADEP_BRAND_SHORT, $desc, $canonical, $extra, $dayPosts[0]['thumb'] ?? '')
+        . nhadep_head('Tin tức ngày ' . $ddmmyyyy . ' — ' . NHADEP_BRAND_SHORT, $desc, $canonical, $extra, $heroImg, $heroW, $heroH)
         . "</head>\n<body>\n"
         . nhadep_header_html(false)
         . '<main>'
@@ -1243,7 +1304,9 @@ function nhadep_render_index_page(
     int $allPostCount,
     string $contactUrl,
     array $latestPosts = [],
-    string $heroImage = ''
+    string $heroImage = '',
+    int $heroImageW = 0,
+    int $heroImageH = 0
 ): string {
     $desc = 'Cổng tin tức nội thất hằng ngày từ ' . NHADEP_BRAND_NAME . ' — ' . NHADEP_TAGLINE . '.';
 
@@ -1382,7 +1445,7 @@ function nhadep_render_index_page(
         . '</div></div></div></section>';
 
     return '<!DOCTYPE html>' . "\n" . '<html lang="vi">' . "\n<head>\n"
-        . nhadep_head('Tin tức nội thất mỗi ngày — ' . NHADEP_BRAND_SHORT . ' Nghệ An & Hà Tĩnh', $desc, NHADEP_CANONICAL, $extra, $heroImage)
+        . nhadep_head('Tin tức nội thất mỗi ngày — ' . NHADEP_BRAND_SHORT . ' Nghệ An & Hà Tĩnh', $desc, NHADEP_CANONICAL, $extra, $heroImage, $heroImageW, $heroImageH)
         . "</head>\n<body>\n"
         . nhadep_header_html(true)
         . '<main>'
@@ -1428,9 +1491,18 @@ function nhadep_render_archive(array $days): string
             . '<b>' . nhadep_san($name) . '</b>'
             . '<small>' . (int) $meta['count'] . ' bài viết</small></a>';
     }
-    // og:image: featured thumb of the newest day (days arrive newest-first);
-    // fall back to the brand logo so the archive always carries an image.
-    $ogImage = (string) (($days !== [] ? ($days[array_key_first($days)]['thumb'] ?? '') : ''));
+    // og:image: featured LARGE image of the newest day (days arrive
+    // newest-first), falling back to its medium thumb, then the brand logo
+    // so the archive always carries an image.
+    $newestMeta = $days !== [] ? $days[array_key_first($days)] : [];
+    $ogImage = (string) ($newestMeta['thumb_large'] ?? '');
+    $ogW     = (int) ($newestMeta['thumb_large_w'] ?? 0);
+    $ogH     = (int) ($newestMeta['thumb_large_h'] ?? 0);
+    if ($ogImage === '') {
+        $ogImage = (string) ($newestMeta['thumb'] ?? '');
+        $ogW     = 0;
+        $ogH     = 0;
+    }
     if ($ogImage === '') {
         $ogImage = NHADEP_LOGO_URL;
     }
@@ -1448,7 +1520,7 @@ function nhadep_render_archive(array $days): string
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
         . '</script>';
     return '<!DOCTYPE html>' . "\n" . '<html lang="vi">' . "\n<head>\n"
-        . nhadep_head('Lưu trữ tin tức — ' . NHADEP_BRAND_SHORT, $desc, NHADEP_CANONICAL . 'tin-tuc/', $extra, $ogImage)
+        . nhadep_head('Lưu trữ tin tức — ' . NHADEP_BRAND_SHORT, $desc, NHADEP_CANONICAL . 'tin-tuc/', $extra, $ogImage, $ogW, $ogH)
         . "</head>\n<body>\n"
         . nhadep_header_html(false)
         . '<main class="wrap">' 
@@ -1738,12 +1810,15 @@ function run_main(array $argv): int
         // ---- Landing page / archive / sitemap / robots / feed (always regenerated) --
         $totalPosts = array_sum(array_map(static fn ($m) => (int) $m['count'], $dayMetaNewestFirst));
 
+        [$heroW, $heroH] = nhadep_hero_dims($posts[0] ?? []);
         nhadep_write_file($outRoot, 'index.html', nhadep_render_index_page(
             $dayMetaNewestFirst,
             $totalPosts,
             $contactUrl,
             $latestAll,
-            $posts[0]['thumb'] ?? ''
+            nhadep_hero_src($posts[0] ?? []),
+            $heroW,
+            $heroH
         ));
         nhadep_log('Đã cập nhật index.html');
 

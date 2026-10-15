@@ -735,186 +735,320 @@ function nhadep_contact_url(bool $verbose): string
 
 function nhadep_css(): string
 {
-    return <<<'CSS'
-:root{--font-sans:"Be Vietnam Pro",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;--font-serif:"Cormorant Garamond","Hoefler Text","Iowan Old Style",Georgia,"Times New Roman",serif;--amber:#B45309;--amber-dk:#92400E;--ink:#1C1917;--bg:#FAF7F2;--gold:#D4A853;--gold-soft:#F1E4CE;--card:#FFFFFF;--line:#EADFD4;--muted:#6B5B4E;--cream-txt:#EFE6D8}
+    $css = <<<'CSS'
+:root{--font-sans:"Be Vietnam Pro",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;--font-display:"Cormorant Garamond","Iowan Old Style","Palatino Linotype",Georgia,"Times New Roman",serif;--ink:#1B1611;--ink-2:#3A3229;--muted:#6E6355;--faint:#9C9184;--paper:#FCFAF7;--paper-2:#F5EFE7;--card:#FFFFFF;--line:#E8DED2;--line-2:#F2EBE2;--accent:#9A6B2F;--accent-dk:#7B5320;--accent-soft:#F7EFE1;--gold:#C9A96C;--r-sm:12px;--r-md:18px;--r-lg:26px;--r-full:999px;--sh-sm:0 1px 2px rgba(27,22,17,.05),0 6px 18px -8px rgba(27,22,17,.12);--sh-md:0 2px 6px rgba(27,22,17,.06),0 24px 48px -18px rgba(27,22,17,.25);--wrap:1180px;--gutter:clamp(20px,4vw,32px);--band:clamp(58px,7vw,104px)}
 *{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
-body{font-family:var(--font-sans);line-height:1.7;color:var(--ink);background:var(--bg)}
-h1,h2,h3,.serif{font-family:var(--font-serif);line-height:1.28;font-weight:700}
-img{max-width:100%}
-a{color:var(--amber)}
-.wrap{max-width:1100px;margin:0 auto;padding:0 20px}
+html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+body{font-family:var(--font-sans);font-size:16px;line-height:1.7;color:var(--ink);background:var(--paper);-webkit-font-smoothing:antialiased}
+img{max-width:100%;display:block}
+a{color:var(--accent);text-underline-offset:3px}
+h1,h2,h3,h4{font-family:var(--font-display);font-weight:600;line-height:1.2;color:var(--ink);letter-spacing:-.01em}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
+::selection{background:var(--accent-soft);color:var(--accent-dk)}
+.wrap{max-width:var(--wrap);margin:0 auto;padding-left:var(--gutter);padding-right:var(--gutter)}
+.skip{position:absolute;left:16px;top:-64px;z-index:120;background:var(--ink);color:#fff;padding:10px 18px;border-radius:0 0 10px 10px;text-decoration:none;transition:top .2s ease}
+.skip:focus{top:0}
 
 /* ---- sticky top bar ---- */
-.topbar{position:sticky;top:0;z-index:60;background:rgba(28,25,23,.97);border-bottom:2px solid var(--amber)}
-.topbar .wrap{display:flex;align-items:center;gap:16px;min-height:62px;flex-wrap:wrap;padding-top:8px;padding-bottom:8px}
-.brand{display:flex;align-items:center;gap:10px;color:var(--bg);text-decoration:none;font-family:var(--font-serif);font-size:.98rem;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
-.brand b{color:var(--gold);font-weight:700}
-.topnav{display:flex;gap:2px;margin-left:auto;align-items:center}
-.topnav a{color:var(--cream-txt);text-decoration:none;font-size:.86rem;padding:7px 11px;border-radius:8px;letter-spacing:.03em}
-.topnav a:hover{color:#fff;background:rgba(212,168,83,.18)}
-.hotline-btn{display:inline-flex;align-items:center;gap:7px;background:var(--amber);color:#fff;text-decoration:none;font-weight:700;font-size:.87rem;padding:9px 17px;border-radius:999px;letter-spacing:.02em;white-space:nowrap;transition:background .2s ease,transform .2s ease}
-.hotline-btn:hover{background:var(--amber-dk);transform:translateY(-1px)}
+.topbar{position:sticky;top:0;z-index:80;background:rgba(252,250,247,.88);backdrop-filter:blur(14px) saturate(140%);-webkit-backdrop-filter:blur(14px) saturate(140%);border-bottom:1px solid transparent;transition:background .3s ease,border-color .3s ease,box-shadow .3s ease}
+.topbar.scrolled{background:rgba(252,250,247,.96);border-bottom-color:var(--line);box-shadow:0 14px 34px -24px rgba(27,22,17,.55)}
+.topbar .wrap{display:flex;align-items:center;gap:clamp(12px,2vw,28px);min-height:76px}
+.brand{display:flex;align-items:center;gap:12px;color:var(--ink);text-decoration:none;white-space:nowrap}
+.brand-mark{display:grid;place-items:center;width:42px;height:42px;border-radius:13px;background:linear-gradient(145deg,#2C2218,#171310);color:var(--gold);font-family:var(--font-display);font-size:1.12rem;font-weight:700;letter-spacing:.05em;box-shadow:inset 0 0 0 1px rgba(201,169,108,.35),0 8px 18px -10px rgba(27,22,17,.6)}
+.brand-name{display:flex;flex-direction:column;font-family:var(--font-display);font-size:1.06rem;font-weight:600;line-height:1;letter-spacing:.03em;text-transform:uppercase}
+.brand-name small{margin-top:5px;font-family:var(--font-sans);font-size:.58rem;font-weight:600;letter-spacing:.3em;color:var(--muted);text-transform:uppercase}
+.topnav{display:flex;align-items:center;gap:2px;margin-left:auto}
+.topnav a{position:relative;color:var(--ink-2);text-decoration:none;font-size:.9rem;font-weight:500;padding:10px 14px;transition:color .25s ease}
+.topnav a::after{content:"";position:absolute;left:14px;right:14px;bottom:4px;height:1.5px;background:var(--accent);transform:scaleX(0);transform-origin:left;transition:transform .3s ease}
+.topnav a:hover{color:var(--accent)}
+.topnav a:hover::after{transform:scaleX(1)}
+.hotline-btn{display:inline-flex;align-items:center;gap:9px;background:var(--ink);color:#fff;text-decoration:none;font-weight:600;font-size:.86rem;padding:11px 20px;border-radius:var(--r-full);white-space:nowrap;box-shadow:var(--sh-sm);transition:background .25s ease,transform .25s ease,box-shadow .25s ease}
+.hotline-btn svg{width:16px;height:16px;flex:none}
+.hotline-btn:hover{background:var(--accent);transform:translateY(-1px);box-shadow:0 14px 26px -14px rgba(154,107,47,.9)}
+.nav-open{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.nav-burger{display:none;flex-direction:column;align-items:center;justify-content:center;gap:5px;width:42px;height:42px;margin-left:auto;border:1px solid var(--line);border-radius:13px;background:var(--card);cursor:pointer}
+.nav-burger span{display:block;width:18px;height:1.6px;background:var(--ink);border-radius:2px;transition:transform .25s ease,opacity .25s ease}
+.nav-open:checked~.nav-burger span:nth-child(1){transform:translateY(6.6px) rotate(45deg)}
+.nav-open:checked~.nav-burger span:nth-child(2){opacity:0}
+.nav-open:checked~.nav-burger span:nth-child(3){transform:translateY(-6.6px) rotate(-45deg)}
 
 /* ---- hero ---- */
-.hero{position:relative;min-height:70vh;display:flex;align-items:center;color:var(--bg);overflow:hidden;background:#1C1917}
-.hero::before{content:"";position:absolute;inset:0;background:linear-gradient(155deg,#33261A 0%,#1C1917 55%,#4A321B 100%)}
-.hero-bg{position:absolute;inset:0;background-size:cover;background-position:center;opacity:.36}
-.hero-scrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(28,25,23,.5) 0%,rgba(28,25,23,.28) 45%,rgba(28,25,23,.94) 100%)}
-.hero-inner{position:relative;z-index:1;width:100%;max-width:1100px;margin:0 auto;padding:96px 20px 88px}
-.kicker{display:inline-block;color:var(--gold);border:1px solid rgba(212,168,83,.55);padding:7px 16px;border-radius:999px;font-size:.72rem;letter-spacing:.3em;text-transform:uppercase;margin-bottom:24px}
-.hero h1{font-size:clamp(2.05rem,5.4vw,3.5rem);max-width:22ch;color:#FAF7F2;letter-spacing:.01em;text-shadow:0 2px 18px rgba(0,0,0,.35)}
-.hero .sub{margin-top:18px;max-width:58ch;color:#DFD2BC;font-size:1.04rem}
-.cta-row{display:flex;gap:14px;margin-top:32px;flex-wrap:wrap}
-.btn{display:inline-flex;align-items:center;gap:9px;text-decoration:none;font-weight:700;padding:14px 27px;border-radius:10px;font-size:.95rem;transition:transform .2s ease,box-shadow .2s ease,background .2s ease}
-.btn-solid{background:var(--amber);color:#fff}
-.btn-solid:hover{background:var(--amber-dk);transform:translateY(-2px);box-shadow:0 12px 26px rgba(180,83,9,.38)}
-.btn-outline{border:1.5px solid var(--gold);color:var(--gold)}
-.btn-outline:hover{background:rgba(212,168,83,.16)}
-.trust-row{display:flex;gap:24px;flex-wrap:wrap;margin-top:36px;color:#CDBDA2;font-size:.88rem}
-.trust-row span::before{content:"\2713\00a0\00a0";color:var(--gold);font-weight:700}
+.hero{position:relative;display:flex;align-items:center;overflow:hidden;background:var(--ink);color:#F6F1EA;min-height:clamp(580px,80vh,780px)}
+.hero::before{content:"";position:absolute;inset:0;background:radial-gradient(120% 120% at 12% 18%,#3B2D1E 0%,transparent 58%),linear-gradient(160deg,#241C14,#171310 62%)}
+.hero-bg{position:absolute;inset:0;background-size:cover;background-position:center;opacity:.42;transform:scale(1.02)}
+.hero-scrim{position:absolute;inset:0;background:linear-gradient(100deg,rgba(20,16,13,.92) 0%,rgba(20,16,13,.6) 48%,rgba(20,16,13,.32) 100%),linear-gradient(0deg,rgba(20,16,13,.88),transparent 46%)}
+.hero-inner{position:relative;z-index:1;width:100%;max-width:var(--wrap);margin:0 auto;padding:clamp(88px,12vw,152px) var(--gutter)}
+.kicker{display:inline-flex;align-items:center;gap:12px;margin-bottom:26px;color:var(--gold);font-size:.7rem;font-weight:600;letter-spacing:.3em;text-transform:uppercase}
+.kicker::before{content:"";width:26px;height:1px;background:var(--gold);opacity:.8}
+.hero h1{max-width:19ch;font-size:clamp(2.35rem,5.6vw,4.3rem);line-height:1.06;letter-spacing:-.02em;color:#FBF8F3;text-wrap:balance}
+.hero h1 em{font-style:italic;font-weight:500;color:var(--gold)}
+.hero .sub{margin-top:22px;max-width:56ch;color:#D6C9B8;font-size:clamp(1rem,1.4vw,1.12rem);line-height:1.75}
+.cta-row{display:flex;flex-wrap:wrap;gap:14px;margin-top:36px}
+.btn{display:inline-flex;align-items:center;gap:10px;padding:14px 26px;border-radius:var(--r-full);text-decoration:none;font-weight:600;font-size:.93rem;transition:transform .25s ease,box-shadow .25s ease,background .25s ease,color .25s ease,border-color .25s ease}
+.btn svg{width:17px;height:17px;flex:none;transition:transform .25s ease}
+.btn:hover svg{transform:translateX(3px)}
+.btn-solid{background:var(--accent);color:#fff;box-shadow:0 16px 32px -16px rgba(154,107,47,.95)}
+.btn-solid:hover{background:var(--accent-dk);transform:translateY(-2px)}
+.btn-ghost{border:1px solid rgba(246,241,234,.38);background:rgba(246,241,234,.04);color:#F6F1EA;backdrop-filter:blur(4px)}
+.btn-ghost:hover{background:rgba(246,241,234,.13);border-color:rgba(246,241,234,.65)}
+.btn-outline{border:1px solid var(--line);background:var(--card);color:var(--ink)}
+.btn-outline:hover{border-color:var(--accent);color:var(--accent);transform:translateY(-2px);box-shadow:var(--sh-sm)}
+.trust-row{display:flex;flex-wrap:wrap;gap:12px 28px;list-style:none;margin-top:44px;padding-top:26px;border-top:1px solid rgba(246,241,234,.16);color:#C9BCA9;font-size:.78rem;letter-spacing:.1em;text-transform:uppercase}
+.trust-row li{display:inline-flex;align-items:center;gap:10px}
+.trust-row li::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--gold)}
 
 /* ---- section scaffolding ---- */
-.band{padding:74px 0}
-.band.alt{background:#F3EBDE;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
-.sec-head{text-align:center;max-width:680px;margin:0 auto 46px}
-.sec-kicker{display:block;color:var(--amber);font-size:.76rem;letter-spacing:.26em;text-transform:uppercase;font-weight:700}
-.sec-head h2{font-size:clamp(1.65rem,3.4vw,2.35rem);margin-top:10px;color:var(--ink)}
-.sec-head p{color:var(--muted);margin-top:12px}
-.rule{width:64px;height:3px;background:var(--gold);margin:18px auto 0;border-radius:2px}
+.band{padding:var(--band) 0}
+.band.alt{background:var(--paper-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.sec-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:20px 40px;margin-bottom:clamp(30px,4vw,52px)}
+.sec-head-main{max-width:660px}
+.sec-kicker{display:inline-flex;align-items:center;gap:11px;color:var(--accent);font-size:.7rem;font-weight:600;letter-spacing:.28em;text-transform:uppercase}
+.sec-kicker::before{content:"";width:22px;height:1px;background:currentColor;opacity:.6}
+.sec-head h2{margin-top:14px;font-size:clamp(1.75rem,3.6vw,2.6rem);text-wrap:balance}
+.sec-head p{margin-top:12px;max-width:60ch;color:var(--muted)}
+.sec-link{display:inline-flex;align-items:center;gap:9px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--ink);text-decoration:none;font-size:.82rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;transition:color .25s ease,border-color .25s ease}
+.sec-link svg{width:15px;height:15px;transition:transform .25s ease}
+.sec-link:hover{color:var(--accent);border-color:var(--accent)}
+.sec-link:hover svg{transform:translateX(4px)}
 
-/* ---- latest-news grid (#tin-moi) ---- */
-.news-grid{list-style:none;display:grid;gap:26px;grid-template-columns:1fr}
-.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
-.pcard{position:relative;background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(28,25,23,.06);transition:transform .25s ease,box-shadow .25s ease;display:flex;flex-direction:column}
-.pcard:hover{transform:translateY(-6px);box-shadow:0 20px 40px rgba(28,25,23,.15)}
-.pcard-media{position:relative;aspect-ratio:16/10;overflow:hidden;background:var(--gold-soft)}
-.pcard-media img{width:100%;height:100%;object-fit:cover;transition:transform .45s ease}
-.pcard:hover .pcard-media img{transform:scale(1.07)}
-.date-badge{position:absolute;left:13px;top:13px;background:rgba(28,25,23,.9);color:var(--bg);border-radius:10px;padding:6px 11px;text-align:center;line-height:1.15}
-.date-badge b{display:block;font-family:var(--font-serif);font-size:1.2rem;color:var(--gold)}
-.date-badge small{font-size:.66rem;letter-spacing:.1em;text-transform:uppercase}
-.chip{position:absolute;right:13px;top:13px;background:var(--amber);color:#fff;font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 11px;border-radius:999px}
-.pcard-body{padding:20px 22px 22px;display:flex;flex-direction:column;gap:10px;flex:1}
-.pcard-body h3{font-size:1.1rem}
-.pcard-body h3 a{color:var(--ink);text-decoration:none}
-.pcard-body h3 a:hover{color:var(--amber)}
-.clamp2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:var(--muted);font-size:.9rem}
-.more-link{margin-top:auto;color:var(--amber);text-decoration:none;font-weight:700;font-size:.87rem;letter-spacing:.02em}
-.more-link:hover{color:var(--amber-dk)}
+/* ---- news grid cards ---- */
+.news-grid{display:grid;grid-template-columns:1fr;gap:clamp(18px,2.4vw,28px)}
+.pcard{position:relative;display:flex;flex-direction:column;overflow:hidden;background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);box-shadow:var(--sh-sm);transition:transform .4s cubic-bezier(.2,.7,.3,1),box-shadow .4s ease,border-color .4s ease}
+.pcard:hover{transform:translateY(-6px);border-color:#DED0BE;box-shadow:var(--sh-md)}
+.pcard-media{position:relative;display:block;aspect-ratio:16/11;overflow:hidden;background:var(--paper-2)}
+.pcard-media img{width:100%;height:100%;object-fit:cover;transition:transform .8s cubic-bezier(.2,.7,.3,1)}
+.pcard:hover .pcard-media img{transform:scale(1.05)}
+.pcard-media::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(27,22,17,.3),transparent 46%);pointer-events:none}
+.chip{position:absolute;left:14px;top:14px;z-index:1;padding:7px 13px;border-radius:var(--r-full);background:rgba(252,250,247,.94);color:var(--ink);font-size:.63rem;font-weight:600;letter-spacing:.18em;text-transform:uppercase;box-shadow:0 8px 18px -10px rgba(27,22,17,.6)}
+.date-badge{position:absolute;right:14px;bottom:14px;z-index:1;padding:8px 13px;border-radius:var(--r-sm);background:rgba(23,19,16,.82);backdrop-filter:blur(8px);color:#F6F1EA;text-align:center;line-height:1}
+.date-badge b{display:block;font-family:var(--font-display);font-size:1.35rem;font-weight:600;color:var(--gold)}
+.date-badge small{display:block;margin-top:4px;font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;opacity:.85}
+.pcard-body{display:flex;flex:1;flex-direction:column;gap:11px;padding:22px 24px 24px}
+.pcard-body h3{font-size:1.22rem;line-height:1.28}
+.pcard-body h3 a{color:var(--ink);text-decoration:none;transition:color .25s ease}
+.pcard-body h3 a:hover{color:var(--accent)}
+.clamp2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:var(--muted);font-size:.92rem;line-height:1.68}
+.more-link{display:inline-flex;align-items:center;gap:9px;margin-top:auto;padding-top:16px;border-top:1px solid var(--line-2);color:var(--accent);text-decoration:none;font-weight:600;font-size:.84rem;letter-spacing:.03em}
+.more-link svg{width:15px;height:15px;transition:transform .3s ease}
+.more-link:hover{color:var(--accent-dk)}
+.more-link:hover svg{transform:translateX(4px)}
+.link-arrow{display:inline-flex;align-items:center;gap:9px;color:var(--gold);text-decoration:none;font-weight:600;font-size:.85rem}
+.link-arrow svg{width:15px;height:15px;transition:transform .25s ease}
+.link-arrow:hover svg{transform:translateX(4px)}
 
-/* ---- day landing page (slug) + hub/archive (defined below) ---- */
-
-/* ---- about (#gioi-thieu) ---- */
-.about-grid{display:grid;gap:44px;grid-template-columns:1fr;align-items:start}
-.about-copy p{color:#4A4038;margin-top:14px}
-.about-copy .lead{font-size:1.05rem;color:var(--ink)}
-.about-list{list-style:none;margin-top:18px;display:grid;gap:8px}
-.about-list li{padding-left:26px;position:relative;color:#4A4038;font-size:.93rem}
-.about-list li::before{content:"\2713";position:absolute;left:0;color:var(--amber);font-weight:700}
-.svc-grid{display:grid;gap:18px;grid-template-columns:repeat(2,1fr)}
-.svc{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px 22px;transition:transform .2s ease,box-shadow .2s ease}
-.svc:hover{transform:translateY(-4px);box-shadow:0 14px 30px rgba(28,25,23,.1)}
-.svc svg{width:36px;height:36px;color:var(--amber)}
-.svc h3{font-size:1.02rem;margin-top:14px}
-.svc p{color:var(--muted);font-size:.85rem;margin-top:6px}
+/* ---- about + services ---- */
+.about-grid{display:grid;grid-template-columns:1fr;gap:clamp(34px,5vw,64px);align-items:start}
+.about-copy h2{margin-top:14px;font-size:clamp(1.8rem,3.4vw,2.5rem)}
+.about-copy p{margin-top:16px;color:var(--ink-2)}
+.about-copy .lead{font-size:1.08rem;line-height:1.75;color:var(--ink)}
+.about-list{display:grid;gap:12px;list-style:none;margin-top:22px}
+.about-list li{position:relative;padding-left:30px;color:var(--ink-2);font-size:.94rem}
+.about-list li::before{content:"";position:absolute;left:0;top:.3em;width:18px;height:18px;border-radius:50%;background:var(--accent-soft);box-shadow:inset 0 0 0 1px rgba(154,107,47,.3)}
+.about-list li::after{content:"";position:absolute;left:6px;top:.58em;width:6px;height:3px;border-left:1.5px solid var(--accent);border-bottom:1.5px solid var(--accent);transform:rotate(-45deg)}
+.svc-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.svc{padding:26px 24px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);transition:transform .3s ease,box-shadow .3s ease,border-color .3s ease}
+.svc:hover{transform:translateY(-4px);border-color:#DED0BE;box-shadow:var(--sh-md)}
+.svc svg{width:38px;height:38px;color:var(--accent)}
+.svc h3{margin-top:16px;font-size:1.08rem}
+.svc p{margin-top:8px;color:var(--muted);font-size:.86rem;line-height:1.65}
 
 /* ---- stats band ---- */
-.stats{background:linear-gradient(135deg,#92400E 0%,#B45309 70%,#C05F14 100%);color:#FFF6E8;padding:60px 0}
-.stats-grid{display:grid;gap:26px;grid-template-columns:repeat(3,1fr);text-align:center}
-.stat b{display:block;font-family:var(--font-serif);font-size:clamp(1.9rem,4.4vw,2.8rem);color:#FFE3B3}
-.stat span{display:block;font-size:.84rem;letter-spacing:.09em;text-transform:uppercase;margin-top:6px;opacity:.95}
+.stats{position:relative;overflow:hidden;padding:clamp(46px,6vw,76px) 0;background:var(--ink);color:#EFE9E1}
+.stats::before{content:"";position:absolute;left:-80px;bottom:-140px;width:360px;height:360px;border-radius:50%;background:radial-gradient(circle,rgba(201,169,108,.16),transparent 70%)}
+.stats-grid{position:relative;display:grid;grid-template-columns:repeat(3,1fr);gap:32px;text-align:center}
+.stat{position:relative}
+.stat+.stat::before{content:"";position:absolute;left:0;top:12%;height:76%;width:1px;background:rgba(246,241,234,.14)}
+.stat b{display:block;font-family:var(--font-display);font-size:clamp(2.2rem,4.6vw,3.2rem);font-weight:600;line-height:1;color:var(--gold)}
+.stat span{display:block;margin-top:10px;color:#BCAF9D;font-size:.74rem;letter-spacing:.2em;text-transform:uppercase}
 
-/* ---- contact strip (#lien-he) ---- */
-.contact-card{background:linear-gradient(150deg,#211B15,#1C1917 60%);color:var(--bg);border-radius:22px;padding:52px 46px;display:grid;gap:36px;grid-template-columns:1fr;box-shadow:0 24px 50px rgba(28,25,23,.25)}
-.contact-card h2{font-size:clamp(1.5rem,3vw,2rem);color:#FAF7F2}
-.contact-big{display:inline-block;font-family:var(--font-serif);font-size:clamp(1.7rem,4.6vw,2.7rem);color:var(--gold);text-decoration:none;margin-top:14px;letter-spacing:.02em}
-.contact-big:hover{color:#E8BE72}
-.contact-meta{display:grid;gap:10px;margin-top:22px;color:var(--cream-txt);font-size:.95rem}
-.contact-meta a{color:var(--gold);text-decoration:none}
-.contact-meta a:hover{text-decoration:underline}
-.contact-actions{display:flex;flex-wrap:wrap;gap:14px;align-content:center}
+/* ---- contact ---- */
+.contact-card{position:relative;display:grid;grid-template-columns:1fr;gap:clamp(30px,4vw,60px);overflow:hidden;padding:clamp(32px,5vw,64px);background:var(--ink);border-radius:var(--r-lg);color:#EFE9E1}
+.contact-card::before{content:"";position:absolute;right:-100px;top:-130px;width:400px;height:400px;border-radius:50%;background:radial-gradient(circle,rgba(201,169,108,.22),transparent 68%)}
+.contact-info{position:relative}
+.contact-info .sec-kicker{color:var(--gold)}
+.contact-info h2{margin-top:14px;max-width:20ch;font-size:clamp(1.7rem,3.2vw,2.5rem);color:#FBF8F3}
+.contact-note{margin-top:14px;max-width:44ch;color:#BCAF9D;font-size:.95rem}
+.contact-big{display:inline-block;margin-top:22px;color:var(--gold);text-decoration:none;font-family:var(--font-display);font-size:clamp(1.9rem,4.6vw,2.9rem);font-weight:600;letter-spacing:.02em;transition:color .25s ease}
+.contact-big:hover{color:#E6C88F}
+.contact-meta{display:grid;gap:14px;margin-top:26px;color:#D6C9B8;font-size:.95rem}
+.contact-meta span{display:flex;gap:12px;align-items:flex-start}
+.contact-meta svg{width:18px;height:18px;flex:none;margin-top:.25em;color:var(--gold)}
+.contact-meta a{color:#F0E7DA;text-decoration:none}
+.contact-meta a:hover{color:var(--gold)}
+.contact-actions{position:relative;display:flex;flex-direction:column;justify-content:center;gap:14px}
+.contact-actions .btn{justify-content:center}
 
 /* ---- footer ---- */
-footer.site{background:#171310;color:#B7A992;padding:48px 0 38px;font-size:.86rem}
-footer.site .wrap{display:grid;gap:13px}
-.f-brand{font-family:var(--font-serif);font-size:1.12rem;color:var(--bg);letter-spacing:.06em}
-.f-brand b{color:var(--gold)}
-footer.site a{color:var(--gold);text-decoration:none}
-footer.site a:hover{text-decoration:underline}
+footer.site{background:#14100D;color:#A99C8B;padding:clamp(52px,6vw,84px) 0 30px;font-size:.9rem}
+.footer-grid{display:grid;grid-template-columns:1fr;gap:clamp(30px,4vw,56px)}
+.f-brand{font-family:var(--font-display);font-size:1.4rem;font-weight:600;letter-spacing:.04em;color:#FBF8F3}
+.f-brand b{color:var(--gold);font-weight:600}
+.f-about p{margin-top:14px;max-width:46ch;line-height:1.7}
+.f-col h3{margin-bottom:18px;font-family:var(--font-sans);font-size:.7rem;font-weight:600;letter-spacing:.24em;text-transform:uppercase;color:var(--gold)}
+.f-col ul{display:grid;gap:11px;list-style:none}
+footer.site a{color:#CFC3B2;text-decoration:none;transition:color .25s ease}
+footer.site a:hover{color:var(--gold)}
+.footer-bottom{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px 26px;margin-top:clamp(38px,5vw,60px);padding-top:24px;border-top:1px solid rgba(246,241,234,.1);font-size:.8rem}
+
+/* ---- breadcrumbs ---- */
+.crumbs{padding:26px 0 0;color:var(--muted);font-size:.82rem}
+.crumbs ol{display:flex;flex-wrap:wrap;align-items:center;gap:8px;list-style:none}
+.crumbs li{display:inline-flex;align-items:center;gap:8px}
+.crumbs li+li::before{content:"\203A";color:var(--faint)}
+.crumbs a{color:var(--muted);text-decoration:none;transition:color .2s ease}
+.crumbs a:hover{color:var(--accent)}
+.crumbs [aria-current]{color:var(--ink);font-weight:500}
 
 /* ---- daily page ---- */
-.crumbs{padding:20px 0 0;font-size:.83rem;color:var(--muted)}
-.crumbs nav[aria-label] span[aria-current]{color:var(--ink)}
-.crumbs a{color:var(--amber);text-decoration:none}
-.crumbs a:hover{text-decoration:underline}
-.day-hero{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 26px;padding:30px 0 8px}
-.day-num{font-family:var(--font-serif);font-size:clamp(4rem,13vw,6.8rem);line-height:.92;color:var(--amber);letter-spacing:-.01em}
-.day-sub{padding-bottom:10px}
-.day-sub .month{font-family:var(--font-serif);font-size:clamp(1.25rem,3vw,1.7rem);color:var(--ink)}
-.day-sub .dow{color:var(--muted);font-size:.95rem;margin-top:2px}
-.count-badge{align-self:center;background:var(--ink);color:var(--gold);border-radius:999px;padding:9px 20px;font-weight:700;font-size:.86rem;letter-spacing:.03em}
-.post-list{list-style:none;display:grid;gap:22px;margin:34px 0 8px}
-.post-card{display:flex;gap:22px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px;box-shadow:0 2px 12px rgba(28,25,23,.05);transition:transform .2s ease,box-shadow .2s ease}
-.post-card:hover{transform:translateY(-3px);box-shadow:0 16px 34px rgba(28,25,23,.12)}
-.post-thumb{flex:0 0 40%;min-height:180px;border-radius:12px;overflow:hidden;background:var(--gold-soft)}
-.post-thumb img{width:100%;height:100%;object-fit:cover;display:block}
-.post-body{flex:1;display:flex;flex-direction:column}
-.post-card h2,.post-card h3{font-size:1.18rem}
-.post-card h2 a,.post-card h3 a{color:var(--ink);text-decoration:none}
-.post-card h2 a:hover,.post-card h3 a:hover{color:var(--amber)}
-.meta{font-size:.76rem;color:var(--muted);margin-top:8px;letter-spacing:.06em;text-transform:uppercase}
-.excerpt{font-size:.93rem;color:var(--muted);margin-top:9px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-.readorig{display:inline-block;margin-top:auto;padding-top:12px;color:var(--amber);font-weight:700;font-size:.87rem;text-decoration:none}
-.readorig:hover{color:var(--amber-dk);text-decoration:underline}
-.day-nav-cards{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:40px 0 14px}
-.dnav{display:block;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 20px;text-decoration:none;transition:border-color .2s ease,transform .2s ease,box-shadow .2s ease}
-.dnav:hover{border-color:var(--amber);transform:translateY(-3px);box-shadow:0 10px 24px rgba(28,25,23,.09)}
-.dnav small{display:block;color:var(--muted);font-size:.71rem;letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px}
-.dnav b{font-family:var(--font-serif);font-size:.98rem;color:var(--ink);font-weight:700}
-.dnav.next{text-align:right}
+.hero-day{min-height:clamp(520px,72vh,720px)}
+.hero-day::before{display:none}
+.hero-day .hero-scrim{background:linear-gradient(95deg,rgba(20,16,13,.94) 0%,rgba(20,16,13,.72) 48%,rgba(20,16,13,.38) 100%),linear-gradient(0deg,rgba(20,16,13,.9),transparent 44%)}
+.hero-day .hero-inner{max-width:960px}
+.hero-day h1{max-width:24ch;font-size:clamp(2rem,4.4vw,3.4rem)}
+.hero-facts{display:flex;flex-wrap:wrap;gap:14px 40px;list-style:none;margin-top:38px;padding-top:26px;border-top:1px solid rgba(246,241,234,.16)}
+.fact b{display:block;font-family:var(--font-display);font-size:1.7rem;font-weight:600;line-height:1;color:var(--gold)}
+.fact span{display:block;margin-top:7px;color:#BCAF9D;font-size:.66rem;letter-spacing:.2em;text-transform:uppercase}
+.post-list{display:grid;gap:clamp(16px,2vw,22px);margin:44px 0 8px}
+.post-card{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);overflow:hidden;background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);box-shadow:var(--sh-sm);transition:transform .35s cubic-bezier(.2,.7,.3,1),box-shadow .35s ease,border-color .35s ease}
+.post-card:hover{transform:translateY(-4px);border-color:#DED0BE;box-shadow:var(--sh-md)}
+.post-card.no-media{grid-template-columns:1fr}
+.post-thumb{position:relative;min-height:230px;overflow:hidden;background:var(--paper-2)}
+.post-thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:transform .8s cubic-bezier(.2,.7,.3,1)}
+.post-card:hover .post-thumb img{transform:scale(1.04)}
+.post-index{position:absolute;left:0;top:0;z-index:1;padding:8px 14px;border-radius:0 0 12px 0;background:rgba(23,19,16,.86);backdrop-filter:blur(6px);color:var(--gold);font-family:var(--font-display);font-size:.95rem;font-weight:600}
+.post-body{display:flex;flex-direction:column;padding:clamp(22px,3vw,32px)}
+.post-card h2,.post-card h3{font-size:clamp(1.2rem,2vw,1.45rem);line-height:1.28}
+.post-card h2 a,.post-card h3 a{color:var(--ink);text-decoration:none;transition:color .25s ease}
+.post-card h2 a:hover,.post-card h3 a:hover{color:var(--accent)}
+.meta{display:inline-flex;align-items:center;gap:9px;margin-top:12px;color:var(--faint);font-size:.72rem;letter-spacing:.14em;text-transform:uppercase}
+.meta svg{width:14px;height:14px;flex:none}
+.excerpt{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;margin-top:14px;color:var(--muted);font-size:.94rem;line-height:1.72}
+.readorig{display:inline-flex;align-items:center;gap:9px;margin-top:auto;padding-top:18px;color:var(--accent);text-decoration:none;font-weight:600;font-size:.85rem}
+.readorig svg{width:15px;height:15px;transition:transform .25s ease}
+.readorig:hover{color:var(--accent-dk)}
+.readorig:hover svg{transform:translateX(4px)}
+.post-card.feature{grid-template-columns:1.15fr 1fr;border-color:#E1D5C4}
+.post-card.feature .post-thumb{min-height:360px}
+.post-card.feature .post-body{padding:clamp(30px,4vw,54px)}
+.post-card.feature h2{font-size:clamp(1.6rem,3vw,2.2rem)}
+.post-card.feature .excerpt{-webkit-line-clamp:4}
+.day-nav-cards{margin:clamp(40px,5vw,64px) 0 0}
+.day-nav-cards .wrap{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.dnav{display:flex;flex-direction:column;gap:8px;padding:22px 24px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);text-decoration:none;box-shadow:var(--sh-sm);transition:transform .3s ease,box-shadow .3s ease,border-color .3s ease}
+.dnav:hover{transform:translateY(-3px);border-color:var(--accent);box-shadow:var(--sh-md)}
+.dnav small{display:inline-flex;align-items:center;gap:8px;color:var(--accent);font-size:.66rem;font-weight:600;letter-spacing:.2em;text-transform:uppercase}
+.dnav small svg{width:14px;height:14px;flex:none}
+.dnav b{font-family:var(--font-display);font-size:1.1rem;font-weight:600;color:var(--ink)}
+.dnav.next{text-align:right;align-items:flex-end}
+.dnav.next small{flex-direction:row-reverse}
 .dnav.empty{opacity:.45;pointer-events:none}
-.home-link-row{text-align:center;margin:22px 0 8px}
-.home-link-row a{display:inline-flex;align-items:center;gap:8px;background:var(--card);border:1.5px solid var(--gold);color:var(--amber-dk);font-weight:700;text-decoration:none;padding:12px 26px;border-radius:999px;font-size:.9rem}
-.home-link-row a:hover{background:var(--gold-soft)}
-.contact-mini{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--amber);border-radius:16px;padding:26px 28px;margin:14px 0 48px;display:grid;gap:8px;box-shadow:0 2px 12px rgba(28,25,23,.05)}
-.contact-mini h2{font-size:1.12rem}
-.contact-mini p{color:#4A4038;font-size:.92rem}
-.contact-mini a{color:var(--amber);text-decoration:none;font-weight:600}
+.home-link-row{margin:34px 0 0;text-align:center}
+.home-link-row a{display:inline-flex;align-items:center;gap:10px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--ink);text-decoration:none;font-size:.82rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;transition:color .25s ease,border-color .25s ease}
+.home-link-row a:hover{color:var(--accent);border-color:var(--accent)}
+.contact-mini{display:grid;gap:12px;margin:clamp(40px,5vw,64px) 0 0;padding:clamp(24px,3vw,34px);background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);box-shadow:var(--sh-sm)}
+.contact-mini h2{margin-top:6px;font-size:1.25rem}
+.contact-mini p{color:var(--muted);font-size:.93rem}
+.contact-mini a{color:var(--accent);font-weight:600;text-decoration:none}
 .contact-mini a:hover{text-decoration:underline}
+
+/* ---- index: featured day + day cells ---- */
+.feature-wrap{margin-bottom:clamp(26px,3vw,38px)}
+.feature-card{display:grid;grid-template-columns:1fr;overflow:hidden;background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);text-decoration:none;box-shadow:var(--sh-sm);transition:transform .4s cubic-bezier(.2,.7,.3,1),box-shadow .4s ease,border-color .4s ease}
+.feature-card:hover{transform:translateY(-5px);border-color:#DED0BE;box-shadow:var(--sh-md)}
+.feature-media{display:block;min-height:230px;background:linear-gradient(135deg,var(--accent-soft),#EADDC7);background-size:cover;background-position:center}
+.feature-body{display:flex;flex-direction:column;justify-content:center;gap:12px;padding:clamp(28px,4vw,46px)}
+.feature-body h2{font-size:clamp(1.5rem,3vw,2.1rem);line-height:1.22}
+.feature-body p{color:var(--muted);font-size:.94rem}
+.feature-body .btn{align-self:flex-start;margin-top:6px}
+.recent-grid,.archive-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.day-cell{display:flex;align-items:center;gap:16px;padding:16px 18px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);text-decoration:none;box-shadow:var(--sh-sm);transition:transform .3s ease,box-shadow .3s ease,border-color .3s ease}
+.day-cell:hover{transform:translateY(-3px);border-color:var(--accent);box-shadow:var(--sh-md)}
+.day-cell-date{display:flex;align-items:baseline;gap:3px;min-width:56px;font-family:var(--font-display);color:var(--accent)}
+.day-cell-date b{font-size:1.8rem;font-weight:600;line-height:1}
+.day-cell-date i{font-size:.8rem;font-style:normal;color:var(--muted)}
+.day-cell-info strong{display:block;color:var(--ink);font-size:.92rem;font-weight:600}
+.day-cell-info small{display:block;margin-top:3px;color:var(--muted);font-size:.76rem}
+.recent-more{margin-top:clamp(26px,3vw,38px);text-align:center}
+
+/* ---- archive page ---- */
+.page-head{max-width:800px;padding:clamp(40px,6vw,72px) 0 clamp(26px,3vw,40px)}
+.page-head h1{margin-top:16px;font-size:clamp(2.1rem,5vw,3.4rem)}
+.page-head .lead{margin-top:16px;max-width:62ch;color:var(--muted);font-size:clamp(1rem,1.4vw,1.1rem)}
+.page-facts{display:flex;flex-wrap:wrap;gap:12px 30px;margin-top:26px}
+.page-facts span{display:inline-flex;align-items:baseline;gap:8px;color:var(--muted);font-size:.8rem;letter-spacing:.08em;text-transform:uppercase}
+.page-facts b{font-family:var(--font-display);font-size:1.35rem;color:var(--ink)}
+.month{margin-bottom:clamp(34px,4vw,52px)}
+.month-head{display:flex;align-items:baseline;gap:14px;margin-bottom:22px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.month-head h2{font-size:1.5rem}
+.month-head span{color:var(--muted);font-size:.7rem;font-weight:600;letter-spacing:.24em;text-transform:uppercase}
 
 /* ---- responsive ---- */
 @media(min-width:600px){.news-grid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:720px){.post-card{flex-direction:column}.post-thumb{flex-basis:auto;min-height:0;aspect-ratio:16/10}}
-@media(min-width:900px){.news-grid{grid-template-columns:repeat(3,1fr)}.about-grid{grid-template-columns:1.05fr 1fr}.contact-card{grid-template-columns:1.4fr 1fr;align-items:center}}
-@media(max-width:420px){.topbar .wrap{gap:10px}.brand{font-size:.88rem}.hotline-btn{padding:8px 14px;font-size:.8rem}.svc-grid{grid-template-columns:1fr}.stats-grid{grid-template-columns:1fr;gap:30px}.day-nav-cards{grid-template-columns:1fr}}
-
-/* ---- daily landing page (slug) + hub/archive ---- */
-.hero.day-hero-page{position:relative;min-height:64vh;display:flex;align-items:center;background-size:cover;background-position:center;background-color:var(--ink)}
-.hero.day-hero-page .hero-scrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(28,25,23,.55),rgba(28,25,23,.82))}
-.hero.day-hero-page .hero-inner{position:relative;z-index:1;max-width:820px}
-.hero.day-hero-page h1{color:#fff;font-size:clamp(1.9rem,4.4vw,3.3rem);line-height:1.08;margin:14px 0 14px;text-shadow:0 2px 18px rgba(0,0,0,.35)}
-.feature-wrap{margin:30px 0}
-.feature-card{display:grid;grid-template-columns:1.1fr 1fr;gap:0;background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;text-decoration:none;box-shadow:0 4px 18px rgba(28,25,23,.06);transition:transform .25s ease,box-shadow .25s ease}
-.feature-card:hover{transform:translateY(-4px);box-shadow:0 22px 44px rgba(28,25,23,.15)}
-.feature-media{background:linear-gradient(135deg,var(--gold-soft),var(--amber-soft));min-height:200px}
-.feature-body{padding:28px 30px;display:flex;flex-direction:column;gap:10px;justify-content:center}
-.feature-body h2{font-size:1.5rem;color:var(--ink);line-height:1.15}
-.feature-body p{color:var(--muted)}
-.recent-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:8px}
-.day-cell{display:flex;flex-direction:column;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 16px;text-decoration:none;transition:border-color .2s ease,transform .2s ease}
-.day-cell:hover{border-color:var(--amber);transform:translateY(-3px)}
-.day-cell b{font-family:var(--font-serif);font-size:1.02rem;color:var(--ink);font-weight:700;line-height:1.2}
-.day-cell small{color:var(--muted);font-size:.74rem;letter-spacing:.06em;text-transform:uppercase}
-.recent-more{margin-top:26px;text-align:center}
-.archive-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin:28px 0 40px}
-.archive-cell{display:flex;flex-direction:column;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 16px;text-decoration:none;transition:border-color .2s ease,transform .2s ease}
-.archive-cell:hover{border-color:var(--amber);transform:translateY(-3px)}
-.archive-cell b{font-family:var(--font-serif);font-size:.98rem;color:var(--ink);font-weight:700}
-.archive-cell small{color:var(--muted);font-size:.74rem}
-@media(max-width:900px){.feature-card{grid-template-columns:1fr}.feature-media{min-height:160px}.recent-grid,.archive-grid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:520px){.recent-grid,.archive-grid{grid-template-columns:1fr}}
+@media(min-width:900px){.news-grid{grid-template-columns:repeat(3,1fr)}.about-grid{grid-template-columns:1.05fr 1fr}.contact-card{grid-template-columns:1.25fr .85fr;align-items:center}.feature-card{grid-template-columns:1.05fr 1fr}.footer-grid{grid-template-columns:1.6fr 1fr 1.2fr}.feature-media{min-height:100%}}
+@media(max-width:1024px){.recent-grid,.archive-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:880px){
+.nav-burger{display:flex}
+.topnav{position:absolute;left:0;right:0;top:100%;display:none;flex-direction:column;align-items:stretch;gap:2px;margin:0;padding:14px var(--gutter) 20px;background:var(--card);border-bottom:1px solid var(--line);box-shadow:0 26px 44px -26px rgba(27,22,17,.5)}
+.topnav a{padding:13px 14px;font-size:.95rem;border-radius:var(--r-sm)}
+.topnav a::after{display:none}
+.nav-open:checked~.topnav{display:flex}
+.post-card{grid-template-columns:1fr}
+.post-thumb{aspect-ratio:16/9;min-height:0}
+.post-thumb img{position:static;height:100%}
+.post-card.feature{grid-template-columns:1fr}
+.post-card.feature .post-thumb{min-height:0}
+.recent-grid,.archive-grid{grid-template-columns:repeat(2,1fr)}
+.topbar .wrap{min-height:68px}
+}
+@media(max-width:720px){
+.stats-grid{grid-template-columns:1fr;gap:28px}
+.stat+.stat::before{display:none}
+.hero .sub{font-size:1rem}
+}
+@media(max-width:560px){
+.recent-grid,.archive-grid,.svc-grid{grid-template-columns:1fr}
+.day-nav-cards .wrap{grid-template-columns:1fr}
+.hotline-btn{padding:11px 14px}
+.hotline-btn span{display:none}
+.brand-name small{display:none}
+.sec-head{align-items:flex-start}
+}
+@media(prefers-reduced-motion:reduce){
+html{scroll-behavior:auto}
+*,*::before,*::after{animation-duration:.001ms!important;transition-duration:.001ms!important}
+}
 CSS;
+    // The readable CSS above is the source of truth; every page inlines it, so
+    // strip comments and inter-rule newlines before emitting (~1.6 KB/page).
+    $css = (string) preg_replace('/\/\*.*?\*\//s', '', $css);
+    return trim((string) preg_replace('/\s*\n\s*/', '', $css));
+}
+
+/**
+ * Inline SVG icon set (stroke-based, inherits currentColor).
+ * Returns '' for an unknown name so callers can emit nothing safely.
+ */
+function nhadep_icon(string $name): string
+{
+    $paths = [
+        'arrow-right' => '<path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>',
+        'arrow-left'  => '<path d="M19 12H5"/><path d="m11 18-6-6 6-6"/>',
+        'arrow-up'    => '<path d="M12 19V5"/><path d="m6 11 6-6 6 6"/>',
+        'phone'       => '<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.2a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z"/>',
+        'mail'        => '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 7 10-7"/>',
+        'pin'         => '<path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+        'clock'       => '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>',
+        'external'    => '<path d="M14 4h6v6"/><path d="M20 4 10 14"/><path d="M18 14v6H4V6h6"/>',
+        'home'        => '<path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>',
+        'villa'       => '<path d="M3 21h18"/><path d="M6 21V9l6-5 6 5v12"/><path d="M9 21v-4h6v4"/><circle cx="17.5" cy="5.5" r="1.5"/>',
+        'apartment'   => '<rect x="5" y="3" width="14" height="18" rx="1"/><path d="M9 7h2m2 0h2M9 11h2m2 0h2M9 15h2m2 0h2"/><path d="M10 21v-3h4v3"/>',
+        'office'      => '<path d="M3 9h18"/><path d="M4 9v11m16-11v11"/><path d="M7 13h10"/><path d="M12 9V5h7"/>',
+    ];
+    if (!isset($paths[$name])) {
+        return '';
+    }
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'
+        . $paths[$name] . '</svg>';
 }
 
 /**
@@ -943,9 +1077,11 @@ function nhadep_head(string $title, string $description, string $canonical, stri
             . '<meta name="twitter:image" content="' . $img . '">' . "\n";
     }
     return "<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
+        . '<meta name="theme-color" content="#1B1611">' . "\n"
+        . '<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%278%27 fill=%27%231B1611%27/%3E%3Ctext x=%2716%27 y=%2722%27 font-family=%27Georgia,serif%27 font-size=%2714%27 font-weight=%27600%27 fill=%27%23C9A96C%27 text-anchor=%27middle%27%3EDK%3C/text%3E%3C/svg%3E">' . "\n"
         . '<link rel="preconnect" href="https://fonts.googleapis.com">' . "\n"
         . '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' . "\n"
-        . '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&amp;family=Be+Vietnam+Pro:wght@400;500;600&amp;display=swap">' . "\n"
+        . '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600&amp;family=Be+Vietnam+Pro:wght@300;400;500;600;700&amp;display=swap">' . "\n"
         . "<title>{$t}</title>\n<meta name=\"description\" content=\"{$d}\">\n"
         . '<link rel="canonical" href="' . $c . "\">\n"
         . '<link rel="alternate" type="application/rss+xml" title="' . nhadep_san(NHADEP_FEED_TITLE) . '" href="' . NHADEP_FEED_URL . '">' . "\n"
@@ -1024,33 +1160,69 @@ function nhadep_breadcrumb_node(array $crumbs): array
 /**
  * Sticky top bar shared by all pages.
  * $isHome=true -> in-page anchors; false -> root-absolute links (daily pages).
+ * Mobile: CSS-only checkbox menu (plus a 10-line script in the footer that
+ * unchecks it on link click, so in-page anchors work on small screens).
  */
 function nhadep_header_html(bool $isHome): string
 {
     $base = $isHome ? '#' : '/#';
-    return '<header class="topbar"><div class="wrap">'
-        . '<a class="brand" href="/' . '" aria-label="' . nhadep_san(NHADEP_BRAND_NAME) . ' — về trang chủ">NỘI THẤT ĐẠT KỲ <b>DK HOME</b></a>'
+    return '<a class="skip" href="#main">Bỏ qua tới nội dung chính</a>'
+        . '<header class="topbar">'
+        . '<div class="wrap">'
+        . '<a class="brand" href="/" aria-label="' . nhadep_san(NHADEP_BRAND_NAME) . ' — về trang chủ">'
+        . '<span class="brand-mark" aria-hidden="true">DK</span>'
+        . '<span class="brand-name">Nội thất Đạt Kỳ<small>DK Home Design</small></span>'
+        . '</a>'
+        . '<input type="checkbox" id="nav-open" class="nav-open" tabindex="-1" aria-hidden="true">'
+        . '<label class="nav-burger" for="nav-open" aria-label="Mở menu điều hướng"><span></span><span></span><span></span></label>'
         . '<nav class="topnav" aria-label="Điều hướng chính">'
         . '<a href="' . $base . 'tin-moi">Tin tức</a>'
+        . '<a href="' . $base . 'tin-theo-ngay">Lưu trữ</a>'
         . '<a href="' . $base . 'gioi-thieu">Giới thiệu</a>'
         . '<a href="' . $base . 'lien-he">Liên hệ</a>'
         . '</nav>'
-        . '<a class="hotline-btn" href="' . NHADEP_HOTLINE_TEL . '">☎ ' . NHADEP_HOTLINE_TEXT . '</a>'
+        . '<a class="hotline-btn" href="' . NHADEP_HOTLINE_TEL . '">' . nhadep_icon('phone') . '<span>' . NHADEP_HOTLINE_TEXT . '</span></a>'
         . '</div></header>';
 }
 
 function nhadep_footer_html(): string
 {
-    $y  = date('Y');
-    $b  = nhadep_safe_url(NHADEP_SOURCE_ORIGIN);
-    $ct = nhadep_safe_url(NHADEP_CONTACT_URL);
-    return '<footer class="site"><div class="wrap">'
-        . '<div class="f-brand">NỘI THẤT ĐẠT KỲ — <b>DK HOME DESIGN</b></div>'
+    $y     = date('Y');
+    $b     = nhadep_safe_url(NHADEP_SOURCE_ORIGIN);
+    $ct    = nhadep_safe_url(NHADEP_CONTACT_URL);
+    $email = nhadep_san(NHADEP_EMAIL);
+    // 10-line progressive enhancement: close the mobile menu after an in-page
+    // anchor click and add a shadow to the sticky bar once the user scrolls.
+    // Everything degrades gracefully without JS (links still navigate).
+    $script = '<script>(function(){'
+        . 'var t=document.getElementById("nav-open"),h=document.querySelector(".topbar");'
+        . 'if(t){Array.prototype.forEach.call(document.querySelectorAll(".topnav a"),function(a){a.addEventListener("click",function(){t.checked=false})})}'
+        . 'if(h){var s=function(){h.classList.toggle("scrolled",window.scrollY>8)};window.addEventListener("scroll",s,{passive:true});s()}'
+        . '})();</script>';
+    return '<footer class="site"><div class="wrap footer-grid">'
+        . '<div class="f-col f-about">'
+        . '<p class="f-brand">Nội thất Đạt Kỳ — <b>DK Home Design</b></p>'
         . '<p>' . nhadep_san(NHADEP_TAGLINE) . '.</p>'
-        . '<p>Tin tức tổng hợp từ <a href="' . $b . '" rel="noopener">noithatdatky.com</a> — DK Home Design · '
-        . '<a href="' . $ct . '">Liên hệ</a> · <a href="/sitemap.xml">Sitemap</a></p>'
-        . '<p>© ' . $y . ' DK Home Design. Địa chỉ: ' . nhadep_san(NHADEP_ADDRESS) . '.</p>'
-        . '</div></footer>';
+        . '<p>Tin tức tổng hợp từ <a href="' . $b . '" rel="noopener">noithatdatky.com</a> — cập nhật tự động mỗi ngày.</p>'
+        . '</div>'
+        . '<div class="f-col"><h3>Khám phá</h3><ul>'
+        . '<li><a href="/#tin-moi">Tin tức mới nhất</a></li>'
+        . '<li><a href="/#tin-theo-ngay">Lưu trữ theo ngày</a></li>'
+        . '<li><a href="/tin-tuc/">Tất cả các ngày</a></li>'
+        . '<li><a href="' . $ct . '" rel="noopener">Trang liên hệ</a></li>'
+        . '</ul></div>'
+        . '<div class="f-col"><h3>Liên hệ</h3><ul>'
+        . '<li><a href="' . NHADEP_HOTLINE_TEL . '">Hotline ' . NHADEP_HOTLINE_TEXT . '</a></li>'
+        . '<li><a href="mailto:' . $email . '">' . $email . '</a></li>'
+        . '<li>' . nhadep_san(NHADEP_ADDRESS) . '</li>'
+        . '</ul></div>'
+        . '</div>'
+        . '<div class="wrap footer-bottom">'
+        . '<p>© ' . $y . ' DK Home Design. Bảo lưu mọi quyền.</p>'
+        . '<p><a href="/sitemap.xml">Sitemap</a> · <a href="/feed.xml">RSS</a> · <a href="/robots.txt">Robots</a></p>'
+        . '</div>'
+        . $script
+        . '</footer>';
 }
 
 /** Shared sanitized-excerpt helper: plain text clamped to $max chars + ellipsis. */
@@ -1119,40 +1291,48 @@ function nhadep_cover_img(array $post): string
     return '<img src="' . $src . '" alt="' . nhadep_img_alt($post) . '" loading="lazy" decoding="async"' . $dim . '>';
 }
 
-/** Landing-grid card (#tin-moi): 16:10 cover, date badge, chip, clamp, CTA to original post. */
+/** Landing-grid card (#tin-moi): 16:11 cover, category chip, date badge,
+ * clamped excerpt and a CTA to the original post. The media block is a
+ * decorative duplicate link (tabindex=-1 + aria-hidden) so screen readers
+ * only announce the title link.
+ */
 function nhadep_post_grid_card(array $post): string
 {
-    $title  = nhadep_san(trim(strip_tags(html_entity_decode($post['title'], ENT_QUOTES | ENT_HTML5, 'UTF-8'))));
-    $link   = nhadep_safe_url($post['link']);
-    $linked = static fn (string $inner): string => $link !== ''
-        ? '<a href="' . $link . '" rel="noopener">' . $inner . '</a>'
-        : $inner;
+    $title = nhadep_san(trim(strip_tags(html_entity_decode($post['title'], ENT_QUOTES | ENT_HTML5, 'UTF-8'))));
+    $link  = nhadep_safe_url($post['link']);
 
-    $media = '<div class="pcard-media">';
-    $img   = nhadep_cover_img($post);
-    if ($img !== '') {
-        $media .= $img;
-    }
+    $mediaInner = nhadep_cover_img($post);
     $dk = nhadep_day_key($post['date_gmt']) ?? '';
     $dt = DateTimeImmutable::createFromFormat('!Y-m-d', $dk, nhadep_tz());
     $dN = $dt instanceof DateTimeImmutable ? $dt->format('j') : '–';
-    $mN = $dt instanceof DateTimeImmutable ? 'Tháng ' . $dt->format('m') : '';
-    $media .= '<div class="date-badge"><b>' . $dN . '</b><small>' . nhadep_san($mN) . '</small></div>'
-        . '<span class="chip">Tin tức</span></div>';
+    $mN = $dt instanceof DateTimeImmutable ? 'Th' . $dt->format('n') : '';
+    $mediaInner .= '<span class="chip">Tin tức</span>'
+        . '<span class="date-badge"><b>' . $dN . '</b><small>' . nhadep_san($mN) . '</small></span>';
+    $media = $link !== ''
+        ? '<a class="pcard-media" href="' . $link . '" rel="noopener" tabindex="-1" aria-hidden="true">' . $mediaInner . '</a>'
+        : '<div class="pcard-media">' . $mediaInner . '</div>';
+
+    $titleHtml = $link !== ''
+        ? '<a href="' . $link . '" rel="noopener">' . $title . '</a>'
+        : $title;
+    $cta = $link !== ''
+        ? '<a class="more-link" href="' . $link . '" rel="noopener">Đọc bài viết ' . nhadep_icon('arrow-right') . '</a>'
+        : '';
 
     return '<article class="pcard">' . $media
-        . '<div class="pcard-body"><h3>' . $linked($title) . '</h3>'
+        . '<div class="pcard-body"><h3>' . $titleHtml . '</h3>'
         . '<p class="clamp2">' . nhadep_excerpt_text($post) . '</p>'
-        . '<a class="more-link" href="' . $link . '" rel="noopener">Xem bài viết &rarr;</a>'
+        . $cta
         . '</div></article>';
 }
 
 /**
- * Daily-page article card (<li class="post-card">): image left ~40% on
- * desktop, stacked on mobile; links point at the ORIGINAL post.
- * $headingTag: h2 on the top story, h3 otherwise.
+ * Daily-page article card: image left ~340px on desktop, stacked on mobile;
+ * numbered badge, publish time, clamped excerpt and CTA — links point at the
+ * ORIGINAL post. $headingTag: h2 on the top story, h3 otherwise.
+ * $featured=true renders the lead story full-width with a 16:8 image.
  */
-function nhadep_post_card(array $post, string $headingTag = 'h3'): string
+function nhadep_post_card(array $post, string $headingTag = 'h3', bool $featured = false, int $index = 0): string
 {
     $title     = nhadep_san(trim(strip_tags(html_entity_decode($post['title'], ENT_QUOTES | ENT_HTML5, 'UTF-8'))));
     $time      = nhadep_time_label($post['date_local']);
@@ -1163,14 +1343,16 @@ function nhadep_post_card(array $post, string $headingTag = 'h3'): string
     $thumbHtml = '';
     $img = nhadep_cover_img($post);
     if ($img !== '') {
-        $thumbHtml = '<div class="post-thumb">' . $img . '</div>';
+        $num = str_pad((string) max(1, $index + 1), 2, '0', STR_PAD_LEFT);
+        $thumbHtml = '<div class="post-thumb"><span class="post-index" aria-hidden="true">' . $num . '</span>' . $img . '</div>';
     }
     $origCta = $link !== ''
-        ? '<a class="readorig" href="' . $link . '" rel="noopener">Đọc bài gốc tại noithatdatky.com &rarr;</a>'
+        ? '<a class="readorig" href="' . $link . '" rel="noopener">Đọc bài gốc tại noithatdatky.com ' . nhadep_icon('arrow-right') . '</a>'
         : '';
-    return '<article class="post-card">' . $thumbHtml
+    $classes = 'post-card' . ($featured ? ' feature' : '') . ($thumbHtml === '' ? ' no-media' : '');
+    return '<article class="' . $classes . '">' . $thumbHtml
         . '<div class="post-body"><' . $headingTag . '>' . $titleHtml . '</' . $headingTag . '>'
-        . '<div class="meta">Đăng lúc ' . $time . ' · ' . nhadep_day_label(nhadep_day_key($post['date_gmt']) ?? '') . '</div>'
+        . '<div class="meta">' . nhadep_icon('clock') . 'Đăng lúc ' . $time . ' · ' . nhadep_day_label(nhadep_day_key($post['date_gmt']) ?? '') . '</div>'
         . '<p class="excerpt">' . nhadep_excerpt_text($post) . '</p>' . $origCta . '</div></article>';
 }
 
@@ -1186,14 +1368,10 @@ function nhadep_render_daily_page(
     ?array $prevDay,
     ?array $nextDay
 ): string {
-    $label     = nhadep_day_label($dayKey);
     $canonical = NHADEP_CANONICAL . $slug . '/';
     $count     = count($dayPosts);
 
     $dt = DateTimeImmutable::createFromFormat('!Y-m-d', $dayKey, nhadep_tz());
-    $dN = $dt instanceof DateTimeImmutable ? $dt->format('d') : $dayKey;
-    $mo = $dt instanceof DateTimeImmutable ? (int) $dt->format('n') : 0;
-    $yN = $dt instanceof DateTimeImmutable ? $dt->format('Y') : '';
     $dows = [1 => 'Thứ Hai', 2 => 'Thứ Ba', 3 => 'Thứ Tư', 4 => 'Thứ Năm', 5 => 'Thứ Sáu', 6 => 'Thứ Bảy', 7 => 'Chủ Nhật'];
     $dow  = ($dt instanceof DateTimeImmutable && isset($dows[(int) $dt->format('N')]))
         ? $dows[(int) $dt->format('N')] : '';
@@ -1204,19 +1382,18 @@ function nhadep_render_daily_page(
     $heroImg   = nhadep_hero_src($primary);
     [$heroW, $heroH] = nhadep_hero_dims($primary);
     $heroBg    = $heroImg !== '' ? ' style="background-image:url(\'' . nhadep_safe_url($heroImg) . '\')"' : '';
-    $icon = static fn (string $paths): string => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' . $paths . '</svg>';
     $svc  = static fn (string $iSvg, string $name, string $txt): string =>
         '<div class="svc">' . $iSvg . '<h3>' . $name . '</h3><p>' . $txt . '</p></div>';
-    $brandServices = '<section id="gioi-thieu" class="band alt"><div class="wrap"><div class="about-grid">' 
+    $brandServices = '<section id="gioi-thieu" class="band alt"><div class="wrap"><div class="about-grid">'
         . '<div class="about-copy"><span class="sec-kicker">Về Đạt Kỳ</span>'
         . '<h2>' . nhadep_san(NHADEP_BRAND_NAME) . '</h2>'
         . '<p class="lead">Đơn vị thiết kế &amp; thi công nội thất trọn gói với xưởng sản xuất trực tiếp, đồng hành cùng khách hàng tại Nghệ An và Hà Tĩnh.</p>'
         . '<ul class="about-list"><li>Xưởng sản xuất trực tiếp — giá tốt hơn 15–25%</li><li>Đội ngũ kiến trúc sư &amp; thợ lành nghề</li><li>Bảo hành dài hạn, hỗ trợ trọn đời sản phẩm</li></ul>'
-        . '</div><div class="svc-grid">' 
-        . $svc($icon('<path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>'), 'Nội thất nhà phố', 'Thiết kế thông minh cho mặt tiền hẹp, tối ưu từng mét vuông.')
-        . $svc($icon('<path d="M3 21h18"/><path d="M6 21V9l6-5 6 5v12"/><path d="M9 21v-4h6v4"/><circle cx="17.5" cy="5.5" r="1.5"/>'), 'Biệt thự &amp; Villa', 'Không gian sang trọng, đồng bộ phong cách từ ngoài vào trong.')
-        . $svc($icon('<rect x="5" y="3" width="14" height="18" rx="1"/><path d="M9 7h2m2 0h2M9 11h2m2 0h2M9 15h2m2 0h2"/><path d="M10 21v-3h4v3"/>'), 'Nội thất căn hộ', 'Giải pháp lưu trữ thông minh, hiện đại cho căn hộ đô thị.')
-        . $svc($icon('<path d="M3 9h18"/><path d="M4 9v11m16-11v11"/><path d="M7 13h10"/><path d="M12 9V5h7"/>'), 'Nội thất văn phòng', 'Công năng hiệu suất cao, thẩm mỹ chuẩn thương hiệu doanh nghiệp.')
+        . '</div><div class="svc-grid">'
+        . $svc(nhadep_icon('home'), 'Nội thất nhà phố', 'Thiết kế thông minh cho mặt tiền hẹp, tối ưu từng mét vuông.')
+        . $svc(nhadep_icon('villa'), 'Biệt thự &amp; Villa', 'Không gian sang trọng, đồng bộ phong cách từ ngoài vào trong.')
+        . $svc(nhadep_icon('apartment'), 'Nội thất căn hộ', 'Giải pháp lưu trữ thông minh, hiện đại cho căn hộ đô thị.')
+        . $svc(nhadep_icon('office'), 'Nội thất văn phòng', 'Công năng hiệu suất cao, thẩm mỹ chuẩn thương hiệu doanh nghiệp.')
         . '</div></div></div></section>';
 
     $desc = 'Tổng hợp ' . $count . ' tin tức nội thất ngày ' . $ddmmyyyy . ' từ ' . NHADEP_BRAND_NAME
@@ -1261,15 +1438,15 @@ function nhadep_render_daily_page(
 
     $items = '';
     foreach ($dayPosts as $i => $post) {
-        $items .= nhadep_post_card($post, $i === 0 ? 'h2' : 'h3') . "\n";
+        $items .= nhadep_post_card($post, $i === 0 ? 'h2' : 'h3', $i === 0, $i) . "\n";
     }
 
     $prevHtml = $prevDay !== null
-        ? '<a class="dnav" href="/' . nhadep_san($prevDay['slug'] ?? '') . '/" rel="prev"><small>&larr; Ngày cũ hơn</small><b>' . nhadep_san(nhadep_day_label($prevDay['key'])) . '</b></a>'
-        : '<div class="dnav empty"><small>&larr; Ngày cũ hơn</small><b>—</b></div>';
+        ? '<a class="dnav" href="/' . nhadep_san($prevDay['slug'] ?? '') . '/" rel="prev"><small>' . nhadep_icon('arrow-left') . 'Ngày cũ hơn</small><b>' . nhadep_san(nhadep_day_label($prevDay['key'])) . '</b></a>'
+        : '<div class="dnav empty"><small>' . nhadep_icon('arrow-left') . 'Ngày cũ hơn</small><b>—</b></div>';
     $nextHtml = $nextDay !== null
-        ? '<a class="dnav next" href="/' . nhadep_san($nextDay['slug'] ?? '') . '/" rel="next"><small>Ngày mới hơn &rarr;</small><b>' . nhadep_san(nhadep_day_label($nextDay['key'])) . '</b></a>'
-        : '<div class="dnav empty next"><small>Ngày mới hơn &rarr;</small><b>—</b></div>';
+        ? '<a class="dnav next" href="/' . nhadep_san($nextDay['slug'] ?? '') . '/" rel="next"><small>Ngày mới hơn ' . nhadep_icon('arrow-right') . '</small><b>' . nhadep_san(nhadep_day_label($nextDay['key'])) . '</b></a>'
+        : '<div class="dnav empty next"><small>Ngày mới hơn ' . nhadep_icon('arrow-right') . '</small><b>—</b></div>';
 
     $cta   = htmlspecialchars($contactUrl, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     $email = nhadep_san(NHADEP_EMAIL);
@@ -1279,34 +1456,40 @@ function nhadep_render_daily_page(
         . nhadep_head('Tin tức ngày ' . $ddmmyyyy . ' — ' . NHADEP_BRAND_SHORT, $desc, $canonical, $extra, $heroImg, $heroW, $heroH)
         . "</head>\n<body>\n"
         . nhadep_header_html(false)
-        . '<main>'
-        . '<nav class="crumbs" aria-label="Breadcrumb"><a href="/">Trang chủ</a> &rsaquo; <a href="/#tin-moi">Tin tức</a> &rsaquo; <span aria-current="page">' . nhadep_san($ddmmyyyy) . '</span></nav>'
-        . '<section id="hero" class="hero day-hero-page"' . $heroBg . ' aria-label="Tin tức nội thất ngày ' . nhadep_san($ddmmyyyy) . '">'
+        . '<main id="main">'
+        . '<nav class="crumbs" aria-label="Breadcrumb"><ol><li><a href="/">Trang chủ</a></li><li><a href="/#tin-moi">Tin tức</a></li><li aria-current="page">' . nhadep_san($ddmmyyyy) . '</li></ol></nav>'
+        . '<section id="hero" class="hero hero-day"' . $heroBg . ' aria-label="Tin tức nội thất ngày ' . nhadep_san($ddmmyyyy) . '">'
         . '<div class="hero-scrim" aria-hidden="true"></div>'
-        . '<div class="hero-inner">' 
-        . '<span class="kicker">TIN TỨC NỘI THẤT · ' . nhadep_san($dow) . ', ' . nhadep_san($ddmmyyyy) . '</span>'
+        . '<div class="hero-inner">'
+        . '<span class="kicker">' . nhadep_san($dow) . ' · ' . nhadep_san($ddmmyyyy) . '</span>'
         . '<h1>' . $heroTitle . '</h1>'
         . '<p class="sub">' . nhadep_san(NHADEP_TAGLINE) . '. Cập nhật hằng ngày từ ' . nhadep_san(NHADEP_BRAND_SHORT) . '.</p>'
-        . '<div class="cta-row"><a class="btn btn-outline" href="#tin-ngay">Xem tin ngày</a>'
-        . '<a class="btn btn-solid" href="' . NHADEP_HOTLINE_TEL . '">&#9742; Hotline ' . NHADEP_HOTLINE_TEXT . '</a></div>'
-        . '<div class="trust-row"><span>Thi công trọn gói</span><span>Bảo hành dài hạn</span><span>Thiết kế miễn phí</span></div>'
+        . '<ul class="hero-facts"><li class="fact"><b>' . $count . '</b><span>Bài viết trong ngày</span></li>'
+        . '<li class="fact"><b>07:15 · 19:15</b><span>Cập nhật tự động</span></li></ul>'
+        . '<div class="cta-row"><a class="btn btn-solid" href="#tin-ngay">Xem tin trong ngày ' . nhadep_icon('arrow-right') . '</a>'
+        . '<a class="btn btn-ghost" href="' . NHADEP_HOTLINE_TEL . '">' . nhadep_icon('phone') . ' Hotline ' . NHADEP_HOTLINE_TEXT . '</a></div>'
         . '</div></section>'
-        . '<section id="tin-ngay" class="band"><div class="wrap"><div class="sec-head"><span class="sec-kicker">Tin ngày</span><h2>Tin tức ngày ' . nhadep_san($ddmmyyyy) . '</h2><p>' . $count . ' bài viết mới nhất được tổng hợp từ noithatdatky.com.</p><span class="rule"></span></div>'
+        . '<section id="tin-ngay" class="band"><div class="wrap">'
+        . '<div class="sec-head"><div class="sec-head-main"><span class="sec-kicker">Tin trong ngày</span>'
+        . '<h2>Tổng hợp ngày ' . nhadep_san($ddmmyyyy) . '</h2>'
+        . '<p>' . $count . ' bài viết mới nhất được tổng hợp từ noithatdatky.com.</p></div>'
+        . '<a class="sec-link" href="/tin-tuc/">Xem lưu trữ ' . nhadep_icon('arrow-right') . '</a></div>'
         . '<div class="post-list">' . "\n" . $items . '</div></div></section>'
         . '<nav class="day-nav-cards" aria-label="Điều hướng theo ngày"><div class="wrap">' . $prevHtml . $nextHtml . '</div></nav>'
         . $brandServices
-        . '<section id="lien-he" class="band"><div class="wrap"><div class="contact-card">' 
+        . '<section id="lien-he" class="band"><div class="wrap"><div class="contact-card">'
         . '<div class="contact-info"><span class="sec-kicker">Liên hệ</span>'
         . '<h2>Nhận tư vấn &amp; báo giá miễn phí</h2>'
+        . '<p class="contact-note">Đội ngũ Đạt Kỳ tư vấn thiết kế &amp; thi công nội thất trọn gói cho nhà phố, villa, căn hộ tại Nghệ An — Hà Tĩnh.</p>'
         . '<a class="contact-big" href="' . NHADEP_HOTLINE_TEL . '">' . NHADEP_HOTLINE_TEXT . '</a>'
-        . '<div class="contact-meta"><span>&#9993; <a href="mailto:' . $email . '">' . $email . '</a></span>'
-        . '<span>&#128205; ' . nhadep_san(NHADEP_ADDRESS) . '</span></div></div>'
+        . '<div class="contact-meta"><span>' . nhadep_icon('mail') . '<a href="mailto:' . $email . '">' . $email . '</a></span>'
+        . '<span>' . nhadep_icon('pin') . nhadep_san(NHADEP_ADDRESS) . '</span></div></div>'
         . '<div class="contact-actions">'
-        . '<a class="btn btn-solid" href="' . NHADEP_HOTLINE_TEL . '">&#9742; Gọi ngay hotline</a>'
-        . '<a class="btn btn-outline" href="' . nhadep_safe_url(NHADEP_SOURCE_ORIGIN) . '" rel="noopener">Truy cập noithatdatky.com</a>'
-        . '<a class="more-link" style="color:var(--gold)" href="' . $cta . '">Hoặc xem trang Liên hệ &rarr;</a>'
+        . '<a class="btn btn-solid" href="' . NHADEP_HOTLINE_TEL . '">' . nhadep_icon('phone') . 'Gọi ngay hotline</a>'
+        . '<a class="btn btn-ghost" href="' . nhadep_safe_url(NHADEP_SOURCE_ORIGIN) . '" rel="noopener">' . nhadep_icon('external') . 'Truy cập noithatdatky.com</a>'
+        . '<a class="link-arrow" href="' . $cta . '">Hoặc xem trang Liên hệ ' . nhadep_icon('arrow-right') . '</a>'
         . '</div></div></div></section>'
-        . '<div class="home-link-row"><a href="/">&larr; Về trang chủ</a></div>'
+        . '<div class="home-link-row"><a href="/">' . nhadep_icon('arrow-left') . 'Về trang chủ</a></div>'
         . '</main>'
         . nhadep_footer_html()
         . "\n</body>\n</html>\n";
@@ -1372,14 +1555,14 @@ function nhadep_render_index_page(
         . '<div class="hero-bg"' . $bgStyle . ' role="img" aria-label="Không gian nội thất ' . nhadep_san(NHADEP_BRAND_SHORT) . '"></div>'
         . '<div class="hero-scrim" aria-hidden="true"></div>'
         . '<div class="hero-inner">'
-        . '<span class="kicker">CỔNG THÔNG TIN NỘI THẤT</span>'
-        . '<h1>Không gian sống đẳng cấp — Cập nhật mỗi ngày</h1>'
+        . '<span class="kicker">Cổng thông tin nội thất</span>'
+        . '<h1>Không gian sống <em>đẳng cấp</em> — cập nhật mỗi ngày</h1>'
         . '<p class="sub">' . nhadep_san(NHADEP_TAGLINE) . '. Theo dõi kinh nghiệm thiết kế, mẫu nội thất và dự án thi công thực tế được tổng hợp mỗi ngày.</p>'
         . '<div class="cta-row">'
-        . '<a class="btn btn-outline" href="#tin-moi">Đọc tin mới nhất</a>'
-        . '<a class="btn btn-solid" href="' . NHADEP_HOTLINE_TEL . '">&#9742; Hotline ' . NHADEP_HOTLINE_TEXT . '</a>'
+        . '<a class="btn btn-solid" href="#tin-moi">Đọc tin mới nhất ' . nhadep_icon('arrow-right') . '</a>'
+        . '<a class="btn btn-ghost" href="' . NHADEP_HOTLINE_TEL . '">' . nhadep_icon('phone') . 'Hotline ' . NHADEP_HOTLINE_TEXT . '</a>'
         . '</div>'
-        . '<div class="trust-row"><span>Thi công trọn gói</span><span>Bảo hành dài hạn</span><span>Thiết kế miễn phí</span></div>'
+        . '<ul class="trust-row"><li>Thi công trọn gói</li><li>Bảo hành dài hạn</li><li>Thiết kế miễn phí</li></ul>'
         . '</div></section>';
 
     /* ---- #tin-moi: 6 newest posts ---- */
@@ -1388,8 +1571,9 @@ function nhadep_render_index_page(
         $cards .= nhadep_post_grid_card($post) . "\n";
     }
     $newsSection = '<section id="tin-moi" class="band"><div class="wrap">'
-        . '<div class="sec-head"><span class="sec-kicker">Tin tức</span><h2>Tin tức mới nhất</h2>'
-        . '<p>Những bài viết chuyên sâu về thiết kế và thi công nội thất, cập nhật liên tục từ noithatdatky.com.</p><span class="rule"></span></div>'
+        . '<div class="sec-head"><div class="sec-head-main"><span class="sec-kicker">Tin tức</span><h2>Tin tức mới nhất</h2>'
+        . '<p>Những bài viết chuyên sâu về thiết kế và thi công nội thất, cập nhật liên tục từ noithatdatky.com.</p></div>'
+        . '<a class="sec-link" href="/tin-tuc/">Xem lưu trữ ' . nhadep_icon('arrow-right') . '</a></div>'
         . ($cards !== '' ? '<div class="news-grid">' . "\n" . $cards . '</div>' : '')
         . '</div></section>';
 
@@ -1398,29 +1582,28 @@ function nhadep_render_index_page(
     $newest  = $rows[0] ?? null;
     $featured = '';
     if ($newest !== null) {
+        $featBg = $heroImg !== '' ? ' style="background-image:url(\'' . $heroImg . '\')"' : '';
         $featured = '<a class="feature-card" href="' . $newest['url'] . '">'
-            . '<div class="feature-media"></div>'
+            . '<div class="feature-media"' . $featBg . ' aria-hidden="true"></div>'
             . '<div class="feature-body"><span class="sec-kicker">Tin mới nhất</span>'
             . '<h2>' . nhadep_san($newest['teaser']) . '</h2>'
             . '<p>' . nhadep_san($newest['name']) . ' · ' . $newest['count'] . ' bài viết</p>'
-            . '<span class="btn btn-outline">Xem trang tin ngày &rarr;</span></div></a>';
+            . '<span class="btn btn-outline">Xem trang tin ngày ' . nhadep_icon('arrow-right') . '</span></div></a>';
     }
     $recent = '';
     foreach (array_slice($rows, 0, 12) as $row) {
-        $recent .= '<a class="day-cell" href="' . $row['url'] . '">'
-            . '<b>' . nhadep_san($row['name']) . '</b>'
-            . '<small>' . $row['count'] . ' bài</small></a>';
+        $recent .= nhadep_day_cell($row);
     }
     $recentSection = '<section id="tin-theo-ngay" class="band alt"><div class="wrap">'
-        . '<div class="sec-head"><span class="sec-kicker">Lưu trữ</span><h2>Các ngày đã cập nhật</h2>'
-        . '<p>' . count($days) . ' ngày tin tức, mới nhất đầu tiên.</p><span class="rule"></span></div>'
+        . '<div class="sec-head"><div class="sec-head-main"><span class="sec-kicker">Lưu trữ</span><h2>Các ngày đã cập nhật</h2>'
+        . '<p>' . count($days) . ' ngày tin tức, mới nhất ở đầu.</p></div>'
+        . '<a class="sec-link" href="/tin-tuc/">Tất cả các ngày ' . nhadep_icon('arrow-right') . '</a></div>'
         . ($featured !== '' ? '<div class="feature-wrap">' . $featured . '</div>' : '')
         . '<div class="recent-grid">' . $recent . '</div>'
-        . '<div class="recent-more"><a class="btn btn-outline" href="/tin-tuc/">Xem tất cả các ngày &rarr;</a></div>'
+        . '<div class="recent-more"><a class="btn btn-outline" href="/tin-tuc/">Xem tất cả các ngày ' . nhadep_icon('arrow-right') . '</a></div>'
         . '</div></section>';
 
     /* ---- #gioi-thieu: split about + service cards ---- */
-    $icon = static fn (string $paths): string => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' . $paths . '</svg>';
     $svc = static fn (string $iconSvg, string $name, string $txt): string =>
         '<div class="svc">' . $iconSvg . '<h3>' . $name . '</h3><p>' . $txt . '</p></div>';
     $aboutSection = '<section id="gioi-thieu" class="band"><div class="wrap"><div class="about-grid">'
@@ -1431,10 +1614,10 @@ function nhadep_render_index_page(
         . '<ul class="about-list"><li>Xưởng sản xuất trực tiếp — giá tốt hơn 15–25%</li><li>Đội ngũ kiến trúc sư &amp; thợ lành nghề</li><li>Bảo hành dài hạn, hỗ trợ trọn đời sản phẩm</li></ul>'
         . '</div>'
         . '<div class="svc-grid">'
-        . $svc($icon('<path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>'), 'Nội thất nhà phố', 'Thiết kế thông minh cho mặt tiền hẹp, tối ưu từng mét vuông.')
-        . $svc($icon('<path d="M3 21h18"/><path d="M6 21V9l6-5 6 5v12"/><path d="M9 21v-4h6v4"/><circle cx="17.5" cy="5.5" r="1.5"/>'), 'Biệt thự &amp; Villa', 'Không gian sang trọng, đồng bộ phong cách từ ngoài vào trong.')
-        . $svc($icon('<rect x="5" y="3" width="14" height="18" rx="1"/><path d="M9 7h2m2 0h2M9 11h2m2 0h2M9 15h2m2 0h2"/><path d="M10 21v-3h4v3"/>'), 'Nội thất căn hộ', 'Giải pháp lưu trữ thông minh, hiện đại cho căn hộ đô thị.')
-        . $svc($icon('<path d="M3 9h18"/><path d="M4 9v11m16-11v11"/><path d="M7 13h10"/><path d="M12 9V5h7"/>'), 'Nội thất văn phòng', 'Công năng hiệu suất cao, thẩm mỹ chuẩn thương hiệu doanh nghiệp.')
+        . $svc(nhadep_icon('home'), 'Nội thất nhà phố', 'Thiết kế thông minh cho mặt tiền hẹp, tối ưu từng mét vuông.')
+        . $svc(nhadep_icon('villa'), 'Biệt thự &amp; Villa', 'Không gian sang trọng, đồng bộ phong cách từ ngoài vào trong.')
+        . $svc(nhadep_icon('apartment'), 'Nội thất căn hộ', 'Giải pháp lưu trữ thông minh, hiện đại cho căn hộ đô thị.')
+        . $svc(nhadep_icon('office'), 'Nội thất văn phòng', 'Công năng hiệu suất cao, thẩm mỹ chuẩn thương hiệu doanh nghiệp.')
         . '</div></div></div></section>';
 
     /* ---- stats band (real numbers) ---- */
@@ -1452,22 +1635,23 @@ function nhadep_render_index_page(
         . '<div class="contact-card">'
         . '<div class="contact-info"><span class="sec-kicker">Liên hệ</span>'
         . '<h2>Nhận tư vấn &amp; báo giá miễn phí</h2>'
+        . '<p class="contact-note">Đội ngũ Đạt Kỳ tư vấn thiết kế &amp; thi công nội thất trọn gói cho nhà phố, villa, căn hộ tại Nghệ An — Hà Tĩnh.</p>'
         . '<a class="contact-big" href="' . NHADEP_HOTLINE_TEL . '">' . NHADEP_HOTLINE_TEXT . '</a>'
         . '<div class="contact-meta">'
-        . '<span>&#9993; <a href="mailto:' . $email . '">' . $email . '</a></span>'
-        . '<span>&#128205; ' . nhadep_san(NHADEP_ADDRESS) . '</span>'
+        . '<span>' . nhadep_icon('mail') . '<a href="mailto:' . $email . '">' . $email . '</a></span>'
+        . '<span>' . nhadep_icon('pin') . nhadep_san(NHADEP_ADDRESS) . '</span>'
         . '</div></div>'
         . '<div class="contact-actions">'
-        . '<a class="btn btn-solid" href="' . NHADEP_HOTLINE_TEL . '">&#9742; Gọi ngay hotline</a>'
-        . '<a class="btn btn-outline" href="' . $originLink . '" rel="noopener">Truy cập noithatdatky.com</a>'
-        . '<a class="more-link" style="color:var(--gold)" href="' . $cta . '">Hoặc xem trang Liên hệ &rarr;</a>'
+        . '<a class="btn btn-solid" href="' . NHADEP_HOTLINE_TEL . '">' . nhadep_icon('phone') . 'Gọi ngay hotline</a>'
+        . '<a class="btn btn-ghost" href="' . $originLink . '" rel="noopener">' . nhadep_icon('external') . 'Truy cập noithatdatky.com</a>'
+        . '<a class="link-arrow" href="' . $cta . '">Hoặc xem trang Liên hệ ' . nhadep_icon('arrow-right') . '</a>'
         . '</div></div></div></section>';
 
     return '<!DOCTYPE html>' . "\n" . '<html lang="vi">' . "\n<head>\n"
         . nhadep_head('Tin tức nội thất mỗi ngày — ' . NHADEP_BRAND_SHORT . ' Nghệ An & Hà Tĩnh', $desc, NHADEP_CANONICAL, $extra, $heroImage, $heroImageW, $heroImageH)
         . "</head>\n<body>\n"
         . nhadep_header_html(true)
-        . '<main>'
+        . '<main id="main">'
         . $heroHtml
         . $newsSection
         . $recentSection
@@ -1482,10 +1666,12 @@ function nhadep_render_index_page(
 /** Build deterministic row data for the index listing (newest-first). */
 function nhadep_index_items(array $days): array
 {
+    $dows  = [1 => 'Thứ Hai', 2 => 'Thứ Ba', 3 => 'Thứ Tư', 4 => 'Thứ Năm', 5 => 'Thứ Sáu', 6 => 'Thứ Bảy', 7 => 'Chủ Nhật'];
     $rows  = [];
     $pos   = 1;
     foreach ($days as $key => $meta) { // $days passed newest-first
         $teaser = trim(strip_tags(html_entity_decode((string) $meta['first_title'], ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+        $dt     = DateTimeImmutable::createFromFormat('!Y-m-d', (string) $key, nhadep_tz());
         $rows[] = [
             'pos'    => $pos++,
             'key'    => $key,
@@ -1493,22 +1679,57 @@ function nhadep_index_items(array $days): array
             'count'  => (int) $meta['count'],
             'teaser' => nhadep_san($teaser),
             'url'    => '/' . ($meta['slug'] ?? $key) . '/',
+            // Compact parts for the day-cell cards (newest-first grid / archive).
+            'day'    => $dt instanceof DateTimeImmutable ? $dt->format('j') : '',
+            'month'  => $dt instanceof DateTimeImmutable ? 'thg ' . $dt->format('n') : '',
+            'year'   => $dt instanceof DateTimeImmutable ? $dt->format('Y') : '',
+            'dow'    => ($dt instanceof DateTimeImmutable && isset($dows[(int) $dt->format('N')]))
+                ? $dows[(int) $dt->format('N')] : '',
         ];
     }
     return $rows;
 }
 
-/** Render the archive hub (out/tin-tuc/index.html): all days, newest-first. */
+/** Compact day card shared by the homepage recent grid and the archive hub. */
+function nhadep_day_cell(array $row): string
+{
+    return '<a class="day-cell" href="' . $row['url'] . '">'
+        . '<span class="day-cell-date"><b>' . nhadep_san((string) $row['day']) . '</b><i>' . nhadep_san((string) $row['month']) . '</i></span>'
+        . '<span class="day-cell-info"><strong>' . nhadep_san((string) $row['dow']) . '</strong><small>'
+        . (int) $row['count'] . ' bài viết · ' . nhadep_san((string) $row['year']) . '</small></span>'
+        . '</a>';
+}
+
+/** Group day rows by YYYY-MM (order preserved: days arrive newest-first). */
+function nhadep_group_rows_by_month(array $rows): array
+{
+    $groups = [];
+    foreach ($rows as $row) {
+        $ym = substr((string) $row['key'], 0, 7);
+        $groups[$ym][] = $row;
+    }
+    return $groups;
+}
+
+/** Render the archive hub (out/tin-tuc/index.html): all days, newest-first,
+ * grouped under a Vietnamese month heading ("Tháng 10 · 2026").
+ */
 function nhadep_render_archive(array $days): string
 {
-    $cells = '';
-    foreach ($days as $key => $meta) {
-        $slug = $meta['slug'] ?? $key;
-        $name = nhadep_day_label($key);
-        $url  = '/' . $slug . '/';
-        $cells .= '<a class="day-cell archive-cell" href="' . $url . '">'
-            . '<b>' . nhadep_san($name) . '</b>'
-            . '<small>' . (int) $meta['count'] . ' bài viết</small></a>';
+    $rows  = nhadep_index_items($days);
+    $totalPosts = 0;
+    $body  = '';
+    foreach (nhadep_group_rows_by_month($rows) as $ym => $monthRows) {
+        $cells = '';
+        $monthPosts = 0;
+        foreach ($monthRows as $row) {
+            $cells .= nhadep_day_cell($row);
+            $monthPosts += (int) $row['count'];
+        }
+        $totalPosts += $monthPosts;
+        $body .= '<section class="month"><div class="month-head"><h2>Tháng ' . (int) substr($ym, 5, 2) . '</h2>'
+            . '<span>Năm ' . substr($ym, 0, 4) . ' · ' . count($monthRows) . ' ngày · ' . $monthPosts . ' bài viết</span></div>'
+            . '<div class="archive-grid">' . $cells . '</div></section>';
     }
     // og:image: featured LARGE image of the newest day (days arrive
     // newest-first), falling back to its medium thumb, then the brand logo
@@ -1542,11 +1763,20 @@ function nhadep_render_archive(array $days): string
         . nhadep_head('Lưu trữ tin tức — ' . NHADEP_BRAND_SHORT, $desc, NHADEP_CANONICAL . 'tin-tuc/', $extra, $ogImage, $ogW, $ogH)
         . "</head>\n<body>\n"
         . nhadep_header_html(false)
-        . '<main class="wrap">' 
-        . '<nav class="crumbs" aria-label="Breadcrumb"><a href="/">Trang chủ</a> &rsaquo; <span aria-current="page">Lưu trữ</span></nav>'
-        . '<h1>Lưu trữ tin tức nội thất</h1>'
-        . '<p class="lead">' . nhadep_san(NHADEP_TAGLINE) . '.</p>'
-        . '<div class="archive-grid">' . $cells . '</div>'
+        . '<main id="main" class="wrap">'
+        . '<nav class="crumbs" aria-label="Breadcrumb"><ol><li><a href="/">Trang chủ</a></li><li aria-current="page">Lưu trữ</li></ol></nav>'
+        . '<header class="page-head"><span class="sec-kicker">Lưu trữ</span>'
+        . '<h1>Toàn bộ tin tức theo ngày</h1>'
+        . '<p class="lead">' . nhadep_san(NHADEP_TAGLINE) . '. Tất cả các ngày đã cập nhật, mới nhất ở đầu — mỗi ngày là một trang tổng hợp riêng.</p>'
+        . '<div class="page-facts"><span><b>' . count($days) . '</b> ngày cập nhật</span><span><b>' . $totalPosts . '</b> bài viết</span></div>'
+        . '</header>'
+        . $body
+        . '<section class="contact-mini"><span class="sec-kicker">Liên hệ</span>'
+        . '<h2>Cần tư vấn thiết kế &amp; thi công nội thất?</h2>'
+        . '<p>Gọi <a href="' . NHADEP_HOTLINE_TEL . '">' . NHADEP_HOTLINE_TEXT . '</a> hoặc email '
+        . '<a href="mailto:' . nhadep_san(NHADEP_EMAIL) . '">' . nhadep_san(NHADEP_EMAIL) . '</a>'
+        . ' — Đạt Kỳ tư vấn miễn phí tại Nghệ An &amp; Hà Tĩnh.</p>'
+        . '</section>'
         . '</main>'
         . nhadep_footer_html()
         . "\n</body>\n</html>\n";

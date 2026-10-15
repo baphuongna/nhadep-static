@@ -22,7 +22,7 @@ WordPress noithatdatky.com          máy Hostinger (nhadepnghean.vn)
                                     └─────────────────────────────────────┘
 ```
 
-- **Không database.** Mọi trang là HTML tĩnh, CSS nhúng inline, không tài nguyên ngoài → tải cực nhanh.
+- **Không database.** Mọi trang là HTML tĩnh, CSS nhúng inline, JS tối thiểu (một snippet ~350 byte cho menu mobile + bóng topbar), chỉ phụ thuộc Google Fonts → tải cực nhanh.
 - Mỗi ngày có bài đăng mới → một trang digest `tin tức ngày <ngày>` liệt kê các bài đó (tiêu đề dẫn về bài gốc trên noithatdatky.com, mô tả, ảnh thumbnail lazy-load, giờ đăng gốc).
 - Trang chủ `index.html` là landing page giới thiệu **Nội thất Đạt Ký — thi công nội thất trọn gói tại Nghệ An**, kèm lưới liên kết tới tất cả các trang theo ngày (mới nhất trước), meta SEO đầy đủ (canonical `https://nhadepnghean.vn/`, Open Graph, JSON-LD WebSite + ItemList).
 - **JSON-LD LocalBusiness + BreadcrumbList:** nút `LocalBusiness` (tên, hotline, email, PostalAddress Diễn Châu — Nghệ An, logo, areaServed Nghệ An/Hà Tĩnh) có trên cả 3 loại trang (landing / trang ngày / lưu trữ), liên kết qua `@id` từ `WebSite.publisher` và `CollectionPage.publisher`; `BreadcrumbList` phủ đúng nav `.crumbs` nhìn thấy trên trang ngày (`Trang chủ › Tin tức › dd-mm-yyyy`) và lưu trữ (`Trang chủ › Lưu trữ`) — trang chủ không cần breadcrumb vì chính là cấp gốc.
@@ -167,4 +167,19 @@ out/
 > trong ngày **không** làm đổi URL trang ngày; slug đã gán không bao giờ bị ngày khác tái sử dụng
 > (ngày mới trùng slug tự nhận hậu tố `-2`, `-3`…).
 
-Mỗi trang < 50KB (chưa tính ảnh), UTF-8 tiếng Việt, CSS inline mobile-first, hoàn toàn standalone.
+Mỗi trang khoảng 40–65KB HTML thô tuỳ lượng bài/ngày (~9–14KB khi nén gzip), UTF-8 tiếng Việt,
+CSS inline mobile-first, không phụ thuộc framework — trang vẫn hiển thị đầy đủ khi mất mạng (chỉ thiếu font Google).
+
+### 8.1. Design system (redesign "Architectural Editorial")
+
+Toàn bộ giao diện nằm trong `nhadep_css()` (nguồn duy nhất) rồi được **minify lúc emit** (bỏ comment + xuống dòng)
+trước khi nhúng vào `<style>` của từng trang:
+
+- **Tokens**: bảng màu ấm (nền `--paper` #FCFAF7, mực `--ink` #1B1611, nhấn đồng thau `--accent` #9A6B2F,
+  vàng trang trí `--gold`), thang chữ Cormorant Garamond (display) + Be Vietnam Pro (nội dung), radius/shadow/ease dùng biến chung.
+- **Components**: topbar glass dính (brand mark `DK`, nav gạch chân động, nút hotline), hero ảnh lớn + scrim chuyển sắc,
+  `sec-head` trái với kicker + link "Xem tất cả", card tin 16:11 (chip + date badge + CTA mũi tên),
+  lead card trang ngày (số thứ tự 01/02…), day-cell Ngày/Tháng, tháng lưu trữ, contact card tối, footer 3 cột.
+- **Responsive**: 1 cột → 2 cột (≥600px) → 3 cột (≥900px); menu mobile bằng checkbox thuần CSS (`#nav-open`)
+  kèm snippet đóng menu khi bấm link; tôn trọng `prefers-reduced-motion`; có skip-link, `:focus-visible`, favicon SVG inline, `theme-color`.
+- Snippet JS ở footer cũng bật shadow cho topbar khi cuộn (`scrollY > 8`); không có JS thì trang vẫn hoạt động bình thường.

@@ -274,6 +274,51 @@ function nhadep_day_slug(array $dayPosts, string $dayKey): string
     return $dayKey;
 }
 
+/**
+ * Resolve a STABLE landing slug per day (dayKey => slug), oldest-first.
+ *
+ * Stored slugs are authoritative: a day keeps the slug it was first
+ * generated with, even when a newer post would change the natural choice
+ * (topic slug of the newest post). Fresh days derive theirs via
+ * nhadep_day_slug() and get a -2/-3/... suffix when clashing with any
+ * reserved slug — stored slots are reserved even for days absent from this
+ * run, so a slug is never reused by a different day.
+ *
+ * @param array $groups      dayKey => posts (newest-first order, any order works)
+ * @param array $storedSlugs dayKey => slug persisted in .state.json
+ */
+function nhadep_resolve_day_slugs(array $groups, array $storedSlugs): array
+{
+    // Self-defensive: ignore malformed stored values wherever they come
+    // from (read_state() sanitizes too, but callers may pass raw arrays).
+    $isValid = static fn ($s): bool => is_string($s)
+        && preg_match('/^[a-z0-9][a-z0-9-]*$/', $s) === 1;
+
+    $used = [];
+    foreach ($storedSlugs as $s) {
+        if ($isValid($s)) {
+            $used[$s] = true;
+        }
+    }
+
+    $slugByKey = [];
+    foreach (array_reverse(array_keys($groups)) as $key) { // oldest-first: stable suffixes
+        if ($isValid($storedSlugs[$key] ?? null)) {
+            $slugByKey[$key] = $storedSlugs[$key];
+            continue;
+        }
+        $base = nhadep_day_slug($groups[$key], $key);
+        $s    = $base;
+        $i    = 2;
+        while (isset($used[$s])) {
+            $s = $base . '-' . $i++;
+        }
+        $used[$s]        = true;
+        $slugByKey[$key] = $s;
+    }
+    return $slugByKey;
+}
+
 function nhadep_day_label(string $dayKey): string
 {
     $dt = DateTimeImmutable::createFromFormat('!Y-m-d', $dayKey, nhadep_tz());
@@ -508,14 +553,30 @@ function nhadep_write_file(string $outRoot, string $relPath, string $content): v
 
 function nhadep_read_state(string $outRoot): array
 {
+    $state = ['days' => [], 'slugs' => []];
     $f = $outRoot . '/.state.json';
     if (!is_file($f)) {
-        return ['days' => []];
+        return $state;
     }
     $decoded = json_decode((string) file_get_contents($f), true);
-    return is_array($decoded) && isset($decoded['days']) && is_array($decoded['days'])
-        ? $decoded
-        : ['days' => []];
+    if (!is_array($decoded)) {
+        return $state;
+    }
+    if (isset($decoded['days']) && is_array($decoded['days'])) {
+        $state['days'] = $decoded['days'];
+    }
+    if (isset($decoded['slugs']) && is_array($decoded['slugs'])) {
+        foreach ($decoded['slugs'] as $key => $slug) {
+            // Only keep well-formed dayKey => slug pairs; anything else (older
+            // shape, hand edits, corruption) is ignored so a bad value can
+            // never pin a day to a broken URL.
+            if (is_string($key) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $key)
+                && is_string($slug) && preg_match('/^[a-z0-9][a-z0-9-]*$/', $slug)) {
+                $state['slugs'][$key] = $slug;
+            }
+        }
+    }
+    return $state;
 }
 
 function nhadep_write_state(string $outRoot, array $state): void
@@ -1426,18 +1487,16 @@ function run_main(array $argv): int
         $orderedDays = array_reverse($dayKeys); // oldest-first for prev/next math
         $dayMetaNewestFirst = [];
 
-        // Resolve a unique landing-page slug per day (topic slug of its primary post).
-        $slugByKey = [];
-        $usedSlugs = [];
-        foreach ($orderedDays as $key) {
-            $base = nhadep_day_slug($groups[$key], $key);
-            $s = $base;
-            $i = 2;
-            while (isset($usedSlugs[$s])) {
-                $s = $base . '-' . $i++;
+        // Resolve a stable landing-page slug per day: stored slugs win
+        // (URL stability), fresh days derive from their newest post.
+        $slugByKey = nhadep_resolve_day_slugs($groups, $state['slugs']);
+        foreach ($slugByKey as $key => $s) {
+            if (($state['slugs'][$key] ?? null) !== $s) {
+                $state['slugs'][$key] = $s;
+                if ($opts['verbose']) {
+                    nhadep_log("Gán slug cố định cho {$key}: {$s}", 'DEBUG');
+                }
             }
-            $usedSlugs[$s]     = true;
-            $slugByKey[$key]   = $s;
         }
 
         foreach ($orderedDays as $idx => $key) {

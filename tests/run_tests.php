@@ -78,6 +78,38 @@ check('day_slug: empty list falls back to day key',
     nhadep_day_slug([], '2026-10-13') === '2026-10-13');
 
 /* -------------------------------------------------------------------------
+ * nhadep_resolve_day_slugs — stable day slugs (stored wins, suffix on clash)
+ * ---------------------------------------------------------------------- */
+$rg = static fn (string $day, array $links): array => [
+    $day => array_map(static fn (string $l): array => $post('https://noithatdatky.com/' . $l . '/'), $links),
+];
+
+check('resolve_slugs: fresh day takes newest post slug',
+    nhadep_resolve_day_slugs($rg('2026-10-13', ['b', 'a']), [])
+        === ['2026-10-13' => 'b']);
+check('resolve_slugs: stored slug survives newer post changing the natural one',
+    nhadep_resolve_day_slugs(
+        $rg('2026-10-13', ['bai-moi-hon']),
+        ['2026-10-13' => 'slug-goc-khi-sinh']
+    ) === ['2026-10-13' => 'slug-goc-khi-sinh']);
+check('resolve_slugs: fresh day cannot steal stored slug of absent day',
+    nhadep_resolve_day_slugs($rg('2026-10-13', ['trung']), ['2026-10-01' => 'trung'])
+        === ['2026-10-13' => 'trung-2']);
+check('resolve_slugs: two fresh days with same natural slug — older keeps, newer suffixed',
+    nhadep_resolve_day_slugs(
+        $rg('2026-10-14', ['giong-nhau']) + $rg('2026-10-13', ['giong-nhau']),
+        []
+    ) === ['2026-10-13' => 'giong-nhau', '2026-10-14' => 'giong-nhau-2']);
+check('resolve_slugs: every stored slot reserved across suffix chain',
+    nhadep_resolve_day_slugs(
+        $rg('2026-10-15', ['doc-dao']) + $rg('2026-10-12', ['doc-dao']),
+        ['2026-10-10' => 'doc-dao', '2026-10-11' => 'doc-dao-2']
+    ) === ['2026-10-12' => 'doc-dao-3', '2026-10-15' => 'doc-dao-4']);
+check('resolve_slugs: day-key fallback participates like any slug',
+    nhadep_resolve_day_slugs(['2026-10-13' => []], [])
+        === ['2026-10-13' => '2026-10-13']);
+
+/* -------------------------------------------------------------------------
  * nhadep_day_label — Vietnamese long date, weekday included
  * ---------------------------------------------------------------------- */
 check('day_label: 2026-10-14 is a Wednesday',
@@ -172,8 +204,31 @@ nhadep_write_state($root, ['days' => ['2026-10-13' => ['hash' => 'abc', 'slug' =
 $st = nhadep_read_state($root);
 check('state: round-trip keeps day hashes', ($st['days']['2026-10-13']['hash'] ?? '') === 'abc');
 file_put_contents($root . '/.state.json', '{corrupt json');
-check('state: corrupt file falls back to empty days', nhadep_read_state($root) === ['days' => []]);
-check('state: missing file gives empty days', nhadep_read_state($root . '/does-not-exist') === ['days' => []]);
+check('state: corrupt file falls back to empty days+slugs',
+    nhadep_read_state($root) === ['days' => [], 'slugs' => []]);
+check('state: missing file gives empty days+slugs',
+    nhadep_read_state($root . '/does-not-exist') === ['days' => [], 'slugs' => []]);
+
+/* Legacy .state.json (pre slug-pinning) must load with an empty slugs map. */
+file_put_contents(
+    $root . '/.state.json',
+    json_encode(['days' => ['2026-10-13' => 'hash1']]) . "\n"
+);
+$legacy = nhadep_read_state($root);
+check('state: legacy file (days only) loads with empty slugs',
+    $legacy === ['days' => ['2026-10-13' => 'hash1'], 'slugs' => []]);
+
+/* Two-run simulation: slug assigned once, then reused despite newer post. */
+$gRun1 = $rg('2026-10-13', ['slug-dau-tien']);
+$run1  = nhadep_resolve_day_slugs($gRun1, []);
+nhadep_write_state($root, ['days' => [], 'slugs' => $run1]);
+$gRun2 = $rg('2026-10-13', ['bai-moi-hon', 'slug-dau-tien']);
+$run2  = nhadep_resolve_day_slugs($gRun2, nhadep_read_state($root)['slugs']);
+check('state: slug pinned across runs even with newer post (write→read→resolve)',
+    $run1 === ['2026-10-13' => 'slug-dau-tien'] && $run2 === $run1);
+check('state: malformed stored slugs ignored, day re-derives natural slug',
+    nhadep_resolve_day_slugs($rg('2026-10-13', ['tu-nhien']), ['2026-10-13' => 'BAD SLUG!'])
+        === ['2026-10-13' => 'tu-nhien']);
 
 /* recursive cleanup of the whole tmp tree */
 $rrm = static function (string $dir) use (&$rrm): void {

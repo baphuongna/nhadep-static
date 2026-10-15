@@ -48,10 +48,11 @@ php -S localhost:8080 -t out                             # xem thử tại http:
 ### 3.1. Chạy test
 
 ```bash
-php tests/run_tests.php    # 64 test, không cần thư viện ngoài; exit 0 = pass hết
+php tests/run_tests.php    # 86 test, không cần thư viện ngoài; exit 0 = pass hết
 ```
 
-Test phủ: escaping/URL allowlist, quy đổi giờ GMT→Việt Nam cho khóa ngày, sinh slug, nhãn ngày/giờ
+Test phủ: escaping/URL allowlist, quy đổi giờ GMT→Việt Nam cho khóa ngày, sinh slug, **ghim slug cố định
+cho từng ngày (stored thắng bài mới hơn, suffix khi trùng)**, nhãn ngày/giờ
 (tiếng Việt), nhóm bài theo ngày, hash idempotency, **biên ghi file không thoát khỏi thư mục out**,
 **render offline từ fixture cố định** (title/canonical/JSON-LD; sitemap/feed well-formed),
 state round-trip, và CLI `--help`.
@@ -133,17 +134,22 @@ out/
 ├── sitemap.xml                 ← cập nhật mỗi lần chạy
 ├── robots.txt                  ← allow all + Sitemap ref
 ├── feed.xml                    ← RSS 20 mục mới nhất (nice-to-have)
-├── .state.json                 ← hash dữ liệu từng ngày (idempotency)
+├── .state.json                 ← hash từng ngày (idempotency) + map slugs đã gán (ổn định URL)
 ├── tin-tuc/
 │   └── index.html              ← hub lưu trữ: lưới tất cả các trang, mới nhất trước
 ├── <slug-chủ-đề>/
 │   └── index.html              ← trang "tin tức ngày YYYY-MM-DD" của một ngày;
-│                                 slug lấy từ bài mới nhất của ngày đó, nằm ở gốc
-│                                 (ví dụ: /thi-cong-noi-that-chung-cu-do-luong/)
+│                                 slug lấy từ bài mới nhất NGAY LẦN ĐẦU sinh trang ngày đó,
+│                                 nằm ở gốc (ví dụ: /thi-cong-noi-that-chung-cu-do-luong/)
 └── ...
 ```
 
 > Lược đồ URL **slug theo chủ đề** (commit `217723c`): mỗi ngày một thư mục slug ở gốc `out/`,
 > hub lưu trữ tại `tin-tuc/`. Các lược đồ cũ `tin-tuc/YYYY-MM-DD/` (trong tarball mẫu) không còn dùng.
+>
+> **Ổn định URL** (2026-10-15): slug mỗi ngày được gán đúng một lần rồi ghi vào
+> `.state.json` (`slugs`), các lần chạy sau tái sử dụng nguyên giá trị — bài mới hơn đăng
+> trong ngày **không** làm đổi URL trang ngày; slug đã gán không bao giờ bị ngày khác tái sử dụng
+> (ngày mới trùng slug tự nhận hậu tố `-2`, `-3`…).
 
 Mỗi trang < 50KB (chưa tính ảnh), UTF-8 tiếng Việt, CSS inline mobile-first, hoàn toàn standalone.

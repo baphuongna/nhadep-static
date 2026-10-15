@@ -49,14 +49,24 @@ php -S localhost:8080 -t out                             # xem thử tại http:
 ### 3.1. Chạy test
 
 ```bash
-php tests/run_tests.php    # 106 test, không cần thư viện ngoài; exit 0 = pass hết
+php tests/run_tests.php    # không cần thư viện ngoài; exit 0 = pass hết
 ```
+
+Tổng số test hiện tại được in ra ở dòng `PASS: <n>/<n> tests passed`; README cố tình **không chép số cứng** để khỏi lệch mỗi khi thêm test.
 
 Test phủ: escaping/URL allowlist, quy đổi giờ GMT→Việt Nam cho khóa ngày, sinh slug, **ghim slug cố định
 cho từng ngày (stored thắng bài mới hơn, suffix khi trùng)**, nhãn ngày/giờ
 (tiếng Việt), nhóm bài theo ngày, hash idempotency, **biên ghi file không thoát khỏi thư mục out**,
 **render offline từ fixture cố định** (title/canonical/JSON-LD: CollectionPage, BlogPosting, LocalBusiness, BreadcrumbList; sitemap/feed well-formed),
-state round-trip, và CLI `--help`.
+state round-trip, và CLI `--help`. Các bảo đảm mới từ S1–S3 cũng được phủ:
+
+- **Feed trỏ trang ngày thật:** mỗi `<item>` trong `feed.xml` trỏ tới `<day-slug>/` của đúng trang ngày chứa bài,
+  không trỏ slug nguồn mà generator không sinh (tránh link 404); khi thiếu map hợp lệ thì fallback về link nguồn đã allowlist, không bịa URL nhadepnghean.vn.
+- **Phân trang fail-closed + retry bounded:** HTTP 400 kèm `rest_post_invalid_page_number` và mảng rỗng là kết thúc bình thường
+  (không phải lỗi); lỗi khác được retry tối đa 3 lần (sleep 1s rồi 2s, test tắt sleep qua `NHADEP_RETRY_NO_SLEEP`);
+  hết retry mà vẫn lỗi hoặc vượt `NHADEP_MAX_PAGES` (60) thì **dừng và báo lỗi** thay vì im lặng cắt dữ liệu.
+- **Ảnh hero/og:image dùng biến thể `large`:** hero của trang ngày và `og:image`/`twitter:image` lấy ảnh `large`
+  (fallback `full` → `medium_large` → `medium`), trong khi card danh sách vẫn dùng `medium`; kèm `og:image:width`/`og:image:height` khi biết kích thước.
 
 ## 4. Các tham số CLI của generator
 
@@ -71,7 +81,11 @@ state round-trip, và CLI `--help`.
 
 Mã lỗi khác 0 khi có lỗi nghiêm trọng; log luôn ghi ra STDOUT.
 
-## 5. deploy.sh hoạt động thế nào?
+## 5. Hợp đồng deploy (script phía người vận hành, **không có trong repo**)
+
+`deploy.sh` là script do người vận hành tự giữ ở máy/workspace riêng — **KHÔNG nằm trong repo này**
+(repo chỉ chứa `generate_nhadep_daily.php`, `tests/`, `.github/`, `README.md` và tarball mẫu; `tools/`/`out/` bị gitignore).
+Mục này mô tả **hợp đồng hành vi** mà script đó phải thực hiện; đừng kỳ vọng `./deploy.sh` tồn tại sau khi clone.
 
 ```bash
 SSH_HOST="<ip-hoặc-hostname>" ./deploy.sh              # an toàn: KHÔNG đụng public_html

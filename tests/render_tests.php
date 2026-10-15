@@ -240,33 +240,76 @@ function nhadep_run_render_tests(callable $check): void
 
     /* =====================================================================
      * nhadep_render_feed
+     *
+     * Contract: every <item> links to the DAY landing page that contains the
+     * post (NHADEP_CANONICAL . <day-slug> ./), never to the post's own source
+     * slug, which the generator does not emit. Without a map the original
+     * allowlisted source link is the safe fallback — never a fabricated
+     * nhadepnghean.vn URL.
      * ================================================================== */
     $latestPosts = array_merge($postsA, $postsB);
-    $feed        = nhadep_render_feed($latestPosts, $contact);
     $validCount  = count(array_filter(
         $latestPosts,
         static fn (array $p): bool => nhadep_safe_url($p['link']) !== ''
     ));
+
+    // Map every post id to the day slug it was actually published under.
+    // Post 102 shares day A with primary post 101 but has a DIFFERENT natural
+    // slug, which is exactly the 404 regression under test.
+    $daySlugByPostId = [
+        (int) $fixture[0]['id'] => $slugA,
+        (int) $fixture[1]['id'] => $slugA,
+        (int) $fixture[2]['id'] => $slugB,
+    ];
+
+    $feed = nhadep_render_feed($latestPosts, $contact, $daySlugByPostId);
     $check('feed: <item> count equals posts with allowlisted link',
         substr_count($feed, '<item>') === $validCount);
     $check('feed: well-formed XML (skipped only if no XML extension)',
         nhadep_render_xml_ok($feed));
 
-    $feedLinksOk = true;
-    if (class_exists('SimpleXMLElement')) {
-        $sx = simplexml_load_string($feed);
-        if ($sx !== false && isset($sx->channel->item)) {
-            foreach ($sx->channel->item as $item) {
-                if (!str_starts_with((string) $item->link, NHADEP_CANONICAL)) {
-                    $feedLinksOk = false;
-                }
-                if (!str_starts_with((string) $item->guid, 'ntdk-post-')) {
-                    $feedLinksOk = false;
-                }
+    $feedItemLinks = static function (string $xml): array {
+        preg_match_all('#<item>.*?</item>#s', $xml, $items);
+        $links = [];
+        foreach ($items[0] as $item) {
+            if (preg_match('#<link>(.*?)</link>#s', $item, $m)) {
+                $links[] = html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
             }
         }
+        return $links;
+    };
+
+    $dayLinks = $feedItemLinks($feed);
+    $allDayLinksOk = count($dayLinks) === $validCount;
+    foreach ($dayLinks as $l) {
+        if (!in_array($l, [NHADEP_CANONICAL . $slugA . '/', NHADEP_CANONICAL . $slugB . '/'], true)) {
+            $allDayLinksOk = false;
+        }
     }
-    $check('feed: every item link is canonical and guid is prefixed', $feedLinksOk);
+    $check('feed: every item link == canonical/<day-slug>/ of its own day', $allDayLinksOk);
+    $check('feed: non-primary item does not carry its own post slug (no 404 link)',
+        !str_contains($feed, 'mau-biet-thu-villa-dep'));
+    $check('feed: no item link is empty',
+        $validCount > 0 && count($dayLinks) === $validCount && !in_array('', $dayLinks, true));
+    $check('feed: every item guid is ntdk-post-<id>',
+        substr_count($feed, '<guid isPermaLink="false">ntdk-post-') === $validCount);
+
+    // Missing map (2-arg call): fall back to the original allowlisted link and
+    // never invent an nhadepnghean.vn/<post-slug>/ URL.
+    $feedNoMap  = nhadep_render_feed($latestPosts, $contact);
+    $noMapLinks = $feedItemLinks($feedNoMap);
+    $fallbackOk = count($noMapLinks) === $validCount;
+    foreach ($noMapLinks as $l) {
+        if (!str_starts_with($l, NHADEP_SOURCE_ORIGIN)) {
+            $fallbackOk = false;
+        }
+    }
+    $check('feed: missing map falls back to original allowlisted links', $fallbackOk);
+    $check('feed: missing map never emits canonical/<post-slug>/',
+        !preg_match(
+            '#https://nhadepnghean\.vn/(thiet-ke-noi-that-chung-cu|mau-biet-thu-villa-dep|nen-chon-go-gi-cho-noi-that)/#',
+            $feedNoMap
+        ));
 
     /* =====================================================================
      * nhadep_render_archive + nhadep_render_index_page

@@ -1411,8 +1411,21 @@ function nhadep_render_robots(): string
     return "User-agent: *\nAllow: /\n\nSitemap: " . NHADEP_CANONICAL . "sitemap.xml\n";
 }
 
-/** Minimal RSS 2.0 feed with the latest 20 posts across all days. */
-function nhadep_render_feed(array $latestPosts, string $contactUrl): string
+/**
+ * Minimal RSS 2.0 feed with the latest 20 posts across all days.
+ *
+ * Every item links to the DAY landing page that actually contains the post,
+ * never to the post's own source slug (which the generator does not emit as a
+ * page). $daySlugByPostId maps post id (int) to that day's generated slug
+ * (string); when a post has no mapping (or an unusable one) the original
+ * allowlisted source link is used instead, so the feed never advertises a
+ * nhadepnghean.vn URL that was not generated. Posts without any allowlisted
+ * link are skipped, as before.
+ *
+ * @param array<int,array> $latestPosts     newest-first posts
+ * @param array<int,string> $daySlugByPostId post id => day landing-page slug
+ */
+function nhadep_render_feed(array $latestPosts, string $contactUrl, array $daySlugByPostId = []): string
 {
     $esc = static fn (string $s): string => htmlspecialchars($s, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
@@ -1424,11 +1437,17 @@ function nhadep_render_feed(array $latestPosts, string $contactUrl): string
 
     foreach ($latestPosts as $p) {
         $link = nhadep_safe_url($p['link']);
-        $slug = nhadep_post_slug($p);
-        $pageLink = $slug !== '' ? NHADEP_CANONICAL . $slug . '/' : $link;
         if ($link === '') {
             continue;
         }
+        $daySlug = $daySlugByPostId[(int) $p['id']] ?? '';
+        $daySlug = is_string($daySlug) ? trim($daySlug) : '';
+        // Only trust a well-formed slug: a malformed mapping must not become
+        // a fabricated nhadepnghean.vn URL either.
+        if ($daySlug !== '' && preg_match('/^[a-z0-9][a-z0-9-]*$/', $daySlug) !== 1) {
+            $daySlug = '';
+        }
+        $pageLink = $daySlug !== '' ? NHADEP_CANONICAL . $daySlug . '/' : $link;
         try {
             $pub = new DateTimeImmutable($p['date_gmt'], new DateTimeZone('UTC'));
             $pubStr = $pub->format(DateTimeInterface::RSS);
@@ -1665,8 +1684,16 @@ function run_main(array $argv): int
         nhadep_write_file($outRoot, 'robots.txt', nhadep_render_robots());
         nhadep_log('Đã cập nhật sitemap.xml, robots.txt');
 
+        // post id => day landing slug, so the feed links to real day pages.
+        $daySlugByPostId = [];
+        foreach ($groups as $key => $dayPosts) {
+            foreach ($dayPosts as $p) {
+                $daySlugByPostId[(int) $p['id']] = $slugByKey[$key] ?? '';
+            }
+        }
+
         $latest = array_slice($latestAll, 0, 20); // newest-first
-        nhadep_write_file($outRoot, 'feed.xml', nhadep_render_feed($latest, $contactUrl));
+        nhadep_write_file($outRoot, 'feed.xml', nhadep_render_feed($latest, $contactUrl, $daySlugByPostId));
         nhadep_log('Đã cập nhật feed.xml (' . count($latest) . ' mục mới nhất)');
 
         nhadep_write_state($outRoot, $state);

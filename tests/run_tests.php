@@ -201,6 +201,12 @@ check('cli: --help documents --out and --force',
     str_contains($helpText, '--out=') && str_contains($helpText, '--force'));
 
 /* -------------------------------------------------------------------------
+ * Offline render tests (fixture-driven, no network)
+ * ---------------------------------------------------------------------- */
+require __DIR__ . '/render_tests.php';
+nhadep_run_render_tests('check');
+
+/* -------------------------------------------------------------------------
  * Summary
  * ---------------------------------------------------------------------- */
 $total = $GLOBALS['__pass'] + $GLOBALS['__fail'];

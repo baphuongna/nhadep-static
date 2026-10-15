@@ -289,11 +289,15 @@ function nhadep_day_label(string $dayKey): string
 function nhadep_time_label(string $wpLocalDate): string
 {
     try {
-        $dt = new DateTimeImmutable($wpLocalDate);
+        // WP "date" is already site-local (Asia/Ho_Chi_Minh). Anchor it to the
+        // site timezone instead of the server default, otherwise displayed
+        // times shift by the server-default-vs-VN difference (e.g. +7h on UTC
+        // servers — the Hostinger cron box). Explicit offsets in the string
+        // still win, as DateTimeImmutable honors them over the constructor tz.
+        $dt = new DateTimeImmutable($wpLocalDate, nhadep_tz());
     } catch (Exception) {
         return nhadep_san($wpLocalDate);
     }
-    $dt = $dt->setTimezone(nhadep_tz());
     return $dt->format('H:i');
 }
 
@@ -479,7 +483,7 @@ function nhadep_resolve_out_dir(string $outArg): string
 function nhadep_write_file(string $outRoot, string $relPath, string $content): void
 {
     if (str_contains($relPath, "\0")) {
-        throw new RuntimeException('Đường đẫn chứa ký tự null.');
+        throw new RuntimeException('Đường dẫn chứa ký tự null.');
     }
     $target = $outRoot . DIRECTORY_SEPARATOR . $relPath;
     $parent = dirname($target);
@@ -490,7 +494,7 @@ function nhadep_write_file(string $outRoot, string $relPath, string $content): v
     $realParent = realpath($parent);
     if ($realParent === false || !str_starts_with($realParent, $outRoot . DIRECTORY_SEPARATOR)
         && $realParent !== $outRoot) {
-        throw new RuntimeException("Đường đẫn ghi nằm ngoài thư mục out: {$relPath}");
+        throw new RuntimeException("Đường dẫn ghi nằm ngoài thư mục out: {$relPath}");
     }
     $tmp   = $realParent . DIRECTORY_SEPARATOR . '.' . basename($target) . '.tmp-' . getmypid();
     if (file_put_contents($tmp, $content) === false) {

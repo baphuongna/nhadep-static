@@ -40,6 +40,21 @@ php generate_nhadep_daily.php --out=out --max-posts=30   # chạy thật, lấy 
 php -S localhost:8080 -t out                             # xem thử tại http://localhost:8080
 ```
 
+> **Lưu ý Windows:** PHP CLI Windows thường thiếu CA bundle → lỗi `SSL certificate problem`. Tải
+> [cacert.pem](https://curl.se/ca/cacert.pem) rồi chạy với
+> `php -d curl.cainfo=<đường-dẫn>/cacert.pem -d openssl.cafile=<đường-dẫn>/cacert.pem generate_nhadep_daily.php ...`
+> (không cần đụng php.ini toàn cục).
+
+### 3.1. Chạy test
+
+```bash
+php tests/run_tests.php    # 42 test, không cần thư viện ngoài; exit 0 = pass hết
+```
+
+Test phủ: escaping/URL allowlist, quy đổi giờ GMT→Việt Nam cho khóa ngày, sinh slug, nhãn ngày/giờ
+(tiếng Việt), nhóm bài theo ngày, hash idempotency, **biên ghi file không thoát khỏi thư mục out**,
+state round-trip, và CLI `--help`.
+
 ## 4. Các tham số CLI của generator
 
 | Cờ | Ý nghĩa |
@@ -118,10 +133,16 @@ out/
 ├── robots.txt                  ← allow all + Sitemap ref
 ├── feed.xml                    ← RSS 20 mục mới nhất (nice-to-have)
 ├── .state.json                 ← hash dữ liệu từng ngày (idempotency)
-└── tin-tuc/
-    ├── 2025-06-01/index.html   ← "tin tức ngày 2025-06-01"
-    ├── 2025-06-03/index.html   ← prev/next điều hướng giữa các ngày
-    └── ...
+├── tin-tuc/
+│   └── index.html              ← hub lưu trữ: lưới tất cả các trang, mới nhất trước
+├── <slug-chủ-đề>/
+│   └── index.html              ← trang "tin tức ngày YYYY-MM-DD" của một ngày;
+│                                 slug lấy từ bài mới nhất của ngày đó, nằm ở gốc
+│                                 (ví dụ: /thi-cong-noi-that-chung-cu-do-luong/)
+└── ...
 ```
+
+> Lược đồ URL **slug theo chủ đề** (commit `217723c`): mỗi ngày một thư mục slug ở gốc `out/`,
+> hub lưu trữ tại `tin-tuc/`. Các lược đồ cũ `tin-tuc/YYYY-MM-DD/` (trong tarball mẫu) không còn dùng.
 
 Mỗi trang < 50KB (chưa tính ảnh), UTF-8 tiếng Việt, CSS inline mobile-first, hoàn toàn standalone.

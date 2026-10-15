@@ -63,22 +63,23 @@ if (!function_exists('str_contains')) {
 
 /* -------------------------------------------------------------------------
  * HTTP layer — named functions so tests can override behaviour via
- * $GLOBALS['NHADEP_FETCH_OVERRIDE'] / $GLOBALS['NHADEP_STATUS_OVERRIDE'].
+ * $GLOBALS['NHADEP_HTTP_GET_OVERRIDE'] (fetch path) and
+ * $GLOBALS['NHADEP_STATUS_OVERRIDE'] (contact-URL probe only).
  * ---------------------------------------------------------------------- */
 
 /**
- * Fetch a JSON document from $url.
- * Returns decoded array on success, false on any failure.
- * Tests may set $GLOBALS['NHADEP_FETCH_OVERRIDE'] = fn(string $url): array|false;
+ * Raw HTTP GET.
+ * Returns ['status' => int, 'body' => string|false, 'err' => string].
+ *  - status 0 means the transport failed (body false, err set).
+ *  - The body is preserved for 4xx/5xx so callers can inspect it
+ *    (e.g. WordPress rest_post_invalid_page_number on HTTP 400).
+ * Tests may set $GLOBALS['NHADEP_HTTP_GET_OVERRIDE'] = fn(string $url): array;
  */
-/** @return array|false decoded array on success, false on failure */
-function nhadep_fetch_json(string $url)
+function nhadep_http_get(string $url): array
 {
-    if (isset($GLOBALS['NHADEP_FETCH_OVERRIDE']) && is_callable($GLOBALS['NHADEP_FETCH_OVERRIDE'])) {
-        return ($GLOBALS['NHADEP_FETCH_OVERRIDE'])($url);
+    if (isset($GLOBALS['NHADEP_HTTP_GET_OVERRIDE']) && is_callable($GLOBALS['NHADEP_HTTP_GET_OVERRIDE'])) {
+        return ($GLOBALS['NHADEP_HTTP_GET_OVERRIDE'])($url);
     }
-
-    $body = false;
 
     if (function_exists('curl_init')) {
         $ch = curl_init($url);
@@ -96,35 +97,101 @@ function nhadep_fetch_json(string $url)
         $err  = curl_error($ch);
         curl_close($ch);
 
-        if ($code !== 200 || $raw === false) {
-            nhadep_log("HTTP {$code} khi tải: {$url}" . ($err !== '' ? " ({$err})" : ''), 'WARN');
-            return false;
-        }
-        $body = $raw;
-    } else {
-        // Fallback without curl.
-        $ctx = stream_context_create([
-            'http' => [
-                'method'           => 'GET',
-                'timeout'          => NHADEP_HTTP_TIMEOUT,
-                'header'           => "User-Agent: nhadep-static-generator/1.0\r\n",
-                'follow_location'  => 1,
-                'max_redirects'    => 3,
-                'ignore_errors'    => false,
-            ],
-            'ssl' => ['verify_peer' => true, 'verify_peer_name' => true],
-        ]);
-        $raw = @file_get_contents($url, false, $ctx);
         if ($raw === false) {
-            nhadep_log("Không thể tải: {$url}", 'WARN');
-            return false;
+            return ['status' => 0, 'body' => false, 'err' => $err !== '' ? $err : 'curl transport failure'];
         }
-        // ignore_errors=false means 4xx/5xx raise a warning + false already.
-        $body = $raw;
+        return ['status' => $code, 'body' => (string) $raw, 'err' => $err];
     }
 
-    $data = json_decode($body, true);
-    return is_array($data) ? $data : false;
+    // Fallback without curl. ignore_errors=true keeps the body on 4xx/5xx;
+    // the status is then read from $http_response_header (last block wins).
+    $ctx = stream_context_create([
+        'http' => [
+            'method'           => 'GET',
+            'timeout'          => NHADEP_HTTP_TIMEOUT,
+            'header'           => "User-Agent: nhadep-static-generator/1.0\r\n",
+            'follow_location'  => 1,
+            'max_redirects'    => 3,
+            'ignore_errors'    => true,
+        ],
+        'ssl' => ['verify_peer' => true, 'verify_peer_name' => true],
+    ]);
+    $raw    = @file_get_contents($url, false, $ctx);
+    $status = 0;
+    if (isset($http_response_header) && is_array($http_response_header)) {
+        foreach ($http_response_header as $row) {
+            if (preg_match('#^HTTP/\S+\s+(\d{3})#', $row, $m)) {
+                $status = (int) $m[1];
+            }
+        }
+    }
+    if ($raw === false) {
+        return ['status' => $status, 'body' => false, 'err' => 'file_get_contents failed'];
+    }
+    return ['status' => $status, 'body' => (string) $raw, 'err' => ''];
+}
+
+/**
+ * Fetch and classify one REST API page.
+ * Returns ['state' => 'ok'|'end'|'error', 'posts' => array, 'status' => int, 'err' => string].
+ *  - 'ok'    : HTTP 200 and a non-empty decoded array
+ *  - 'end'   : HTTP 200 + empty array, or HTTP 400 + rest_post_invalid_page_number
+ *  - 'error' : anything else (retryable), including a failed JSON decode
+ */
+function nhadep_fetch_page(string $url): array
+{
+    $res    = nhadep_http_get($url);
+    $status = (int) ($res['status'] ?? 0);
+    $body   = $res['body'] ?? false;
+    $err    = (string) ($res['err'] ?? '');
+
+    if ($status === 400 && is_string($body) && str_contains($body, 'rest_post_invalid_page_number')) {
+        return ['state' => 'end', 'posts' => [], 'status' => $status, 'err' => ''];
+    }
+
+    if ($status === 200) {
+        $data = is_string($body) ? json_decode($body, true) : null;
+        if (!is_array($data)) {
+            return ['state' => 'error', 'posts' => [], 'status' => $status, 'err' => $err !== '' ? $err : 'JSON decode failed'];
+        }
+        if ($data === []) {
+            return ['state' => 'end', 'posts' => [], 'status' => $status, 'err' => ''];
+        }
+        return ['state' => 'ok', 'posts' => $data, 'status' => $status, 'err' => ''];
+    }
+
+    return ['state' => 'error', 'posts' => [], 'status' => $status, 'err' => $err];
+}
+
+/**
+ * Fetch one page with bounded retry on retryable ('error') results.
+ * Maximum 3 attempts total; sleeps 1s then 2s between attempts unless
+ * $GLOBALS['NHADEP_RETRY_NO_SLEEP'] is truthy (tests).
+ */
+function nhadep_fetch_page_retry(string $url): array
+{
+    $delays   = [1, 2];
+    $attempts = count($delays) + 1;
+    $res      = ['state' => 'error', 'posts' => [], 'status' => 0, 'err' => ''];
+
+    for ($i = 0; $i < $attempts; $i++) {
+        $res = nhadep_fetch_page($url);
+        if ($res['state'] !== 'error') {
+            return $res;
+        }
+        if ($i < $attempts - 1) {
+            $n = $i + 1;
+            nhadep_log(
+                "Lỗi tải trang (lần {$n}/{$attempts}, HTTP {$res['status']}"
+                . ($res['err'] !== '' ? ", {$res['err']}" : '') . "), thử lại sau {$delays[$i]}s: {$url}",
+                'WARN'
+            );
+            if (empty($GLOBALS['NHADEP_RETRY_NO_SLEEP'])) {
+                sleep($delays[$i]);
+            }
+        }
+    }
+    return $res;
 }
 
 /**
@@ -362,7 +429,11 @@ function nhadep_fetch_all_posts(int $maxPosts, bool $verbose): array
     $posts   = [];
     $page    = 1;
 
-    while ($page <= NHADEP_MAX_PAGES) {
+    while (true) {
+        if ($page > NHADEP_MAX_PAGES) {
+            throw new RuntimeException('Vượt giới hạn phân trang ' . NHADEP_MAX_PAGES . ' trang mà chưa gặp kết thúc.');
+        }
+
         $sep  = str_contains(NHADEP_API_BASE, '?') ? '&' : '?';
         $url  = NHADEP_API_BASE . $sep . http_build_query([
             'per_page' => NHADEP_PER_PAGE,
@@ -375,19 +446,26 @@ function nhadep_fetch_all_posts(int $maxPosts, bool $verbose): array
             nhadep_log("Đang tải trang {$page}: {$url}", 'DEBUG');
         }
 
-        $batch = nhadep_fetch_json($url);
-        if ($batch === false) {
-            if ($page === 1) {
-                throw new RuntimeException("Không tải được dữ liệu từ REST API (trang 1): {$url}");
-            }
-            nhadep_log("Trang {$page} lỗi, dừng phân trang.", 'WARN');
+        $res = nhadep_fetch_page_retry($url);
+
+        if ($page === 1 && $res['state'] !== 'ok') {
+            throw new RuntimeException(
+                "Không tải được dữ liệu từ REST API (trang 1, HTTP {$res['status']}"
+                . ($res['err'] !== '' ? ", {$res['err']}" : '') . "): {$url}"
+            );
+        }
+        if ($res['state'] === 'end') {
+            nhadep_log("Kết thúc phân trang ở trang {$page}.", 'DEBUG');
             break;
         }
-        if ($batch === []) {
-            break; // exhausted
+        if ($res['state'] === 'error') {
+            throw new RuntimeException(
+                "Lỗi tải trang {$page} sau retry (HTTP {$res['status']}"
+                . ($res['err'] !== '' ? ", {$res['err']}" : '') . "): {$url}"
+            );
         }
 
-        foreach ($batch as $p) {
+        foreach ($res['posts'] as $p) {
             if (!is_array($p)) {
                 continue;
             }

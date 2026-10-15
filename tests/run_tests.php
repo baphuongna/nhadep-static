@@ -262,6 +262,12 @@ require __DIR__ . '/render_tests.php';
 nhadep_run_render_tests('check');
 
 /* -------------------------------------------------------------------------
+ * Offline fetch-resilience tests (override-driven, no network)
+ * ---------------------------------------------------------------------- */
+require __DIR__ . '/fetch_tests.php';
+nhadep_run_fetch_tests('check');
+
+/* -------------------------------------------------------------------------
  * Summary
  * ---------------------------------------------------------------------- */
 $total = $GLOBALS['__pass'] + $GLOBALS['__fail'];

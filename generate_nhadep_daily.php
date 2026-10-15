@@ -835,6 +835,65 @@ function nhadep_head(string $title, string $description, string $canonical, stri
 }
 
 /**
+ * Shared LocalBusiness JSON-LD node — single source of truth is the brand
+ * facts block at the top of this file. Included in every page's @graph so
+ * search engines tie all pages to one business entity.
+ */
+function nhadep_localbusiness_node(): array
+{
+    return [
+        '@type'         => 'LocalBusiness',
+        '@id'           => NHADEP_CANONICAL . '#localbusiness',
+        'name'          => NHADEP_BRAND_NAME,
+        'alternateName' => NHADEP_BRAND_SHORT,
+        'description'   => NHADEP_TAGLINE,
+        'url'           => NHADEP_CANONICAL,
+        'telephone'     => substr(NHADEP_HOTLINE_TEL, 4), // strip 'tel:' -> '+84...'
+        'email'         => NHADEP_EMAIL,
+        'logo'          => ['@type' => 'ImageObject', 'url' => NHADEP_LOGO_URL],
+        // Deterministic split of NHADEP_ADDRESS ('<street>, <locality>, <region>')
+        // — no second copy of the address string; the constant stays the only source.
+        'address'       => (static function (): array {
+            $parts    = array_map('trim', explode(',', NHADEP_ADDRESS));
+            $address  = ['@type' => 'PostalAddress', 'streetAddress' => NHADEP_ADDRESS, 'addressCountry' => 'VN'];
+            if (count($parts) >= 3) {
+                $address['addressRegion']   = (string) array_pop($parts);
+                $address['addressLocality'] = (string) array_pop($parts);
+                $address['streetAddress']   = implode(', ', $parts);
+            }
+            return $address;
+        })(),
+        'areaServed'    => ['Nghệ An', 'Hà Tĩnh'],
+        'sameAs'        => [NHADEP_SOURCE_ORIGIN],
+    ];
+}
+
+/**
+ * BreadcrumbList JSON-LD node. $crumbs: list of [name, absolute URL] pairs,
+ * top level first; the last pair is the current page (must carry its own
+ * canonical URL). Mirrors the visible .crumbs nav on daily/archive pages.
+ *
+ * @param array<int, array{0:string, 1:string}> $crumbs
+ */
+function nhadep_breadcrumb_node(array $crumbs): array
+{
+    $items = [];
+    foreach (array_values($crumbs) as $i => $crumb) {
+        $items[] = [
+            '@type'    => 'ListItem',
+            'position' => $i + 1,
+            'name'     => $crumb[0],
+            'item'     => $crumb[1],
+        ];
+    }
+    return [
+        '@type'           => 'BreadcrumbList',
+        '@id'             => ($items !== [] ? $items[count($items) - 1]['item'] : '') . '#breadcrumb',
+        'itemListElement' => $items,
+    ];
+}
+
+/**
  * Sticky top bar shared by all pages.
  * $isHome=true -> in-page anchors; false -> root-absolute links (daily pages).
  */
@@ -1001,7 +1060,8 @@ function nhadep_render_daily_page(
     $desc = 'Tổng hợp ' . $count . ' tin tức nội thất ngày ' . $ddmmyyyy . ' từ ' . NHADEP_BRAND_NAME
         . ' — ' . NHADEP_TAGLINE . '.';
 
-    // JSON-LD: CollectionPage + one BlogPosting per article (links to originals).
+    // JSON-LD: CollectionPage + one BlogPosting per article (links to originals),
+    // plus LocalBusiness (brand entity) + BreadcrumbList mirroring .crumbs.
     $graph = [[
         '@type'      => 'CollectionPage',
         '@id'        => $canonical . '#collectionpage',
@@ -1009,7 +1069,7 @@ function nhadep_render_daily_page(
         'name'       => 'Tin tức nội thất ngày ' . $ddmmyyyy,
         'inLanguage' => 'vi',
         'isPartOf'   => ['@id' => NHADEP_CANONICAL . '#website'],
-        'publisher'  => ['@type' => 'Organization', 'name' => NHADEP_BRAND_NAME, 'url' => NHADEP_SOURCE_ORIGIN],
+        'publisher'  => ['@id' => NHADEP_CANONICAL . '#localbusiness'],
     ]];
     foreach ($dayPosts as $p) {
         $item = [
@@ -1027,6 +1087,12 @@ function nhadep_render_daily_page(
         }
         $graph[] = $item;
     }
+    $graph[] = nhadep_localbusiness_node();
+    $graph[] = nhadep_breadcrumb_node([
+        ['Trang chủ', NHADEP_CANONICAL],
+        ['Tin tức', NHADEP_CANONICAL . 'tin-tuc/'],
+        [$ddmmyyyy, $canonical],
+    ]);
     $extra = '<script type="application/ld+json">'
         . json_encode(['@context' => 'https://schema.org', '@graph' => $graph], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
         . '</script>';
@@ -1109,12 +1175,7 @@ function nhadep_render_index_page(
                     'url'   => NHADEP_CANONICAL,
                     'name'  => NHADEP_BRAND_SHORT . ' — Tin tức nội thất Nghệ An & Hà Tĩnh',
                     'inLanguage' => 'vi',
-                    'publisher'  => [
-                        '@type' => 'Organization',
-                        'name'  => NHADEP_BRAND_NAME,
-                        'url'   => NHADEP_SOURCE_ORIGIN,
-                        'logo'  => ['@type' => 'ImageObject', 'url' => NHADEP_LOGO_URL],
-                    ],
+                    'publisher'  => ['@id' => NHADEP_CANONICAL . '#localbusiness'],
                 ],
                 [
                     '@type' => 'ItemList',
@@ -1132,6 +1193,10 @@ function nhadep_render_index_page(
                         nhadep_index_items($days)
                     )),
                 ],
+                // LocalBusiness entity data on the landing page; BreadcrumbList is
+                // intentionally omitted — this IS the homepage/top level (Google
+                // guidance: no breadcrumb markup needed for a site's root page).
+                nhadep_localbusiness_node(),
             ],
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
         . '</script>';
@@ -1281,9 +1346,21 @@ function nhadep_render_archive(array $days): string
             . '<b>' . nhadep_san($name) . '</b>'
             . '<small>' . (int) $meta['count'] . ' bài viết</small></a>';
     }
-    $desc = 'Lưu trữ toàn bộ các trang tin tức nội thất theo ngày từ ' . NHADEP_BRAND_NAME . '.';
+    $desc  = 'Lưu trữ toàn bộ các trang tin tức nội thất theo ngày từ ' . NHADEP_BRAND_NAME . '.';
+    $extra = '<script type="application/ld+json">'
+        . json_encode([
+            '@context' => 'https://schema.org',
+            '@graph'   => [
+                nhadep_breadcrumb_node([
+                    ['Trang chủ', NHADEP_CANONICAL],
+                    ['Lưu trữ', NHADEP_CANONICAL . 'tin-tuc/'],
+                ]),
+                nhadep_localbusiness_node(),
+            ],
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+        . '</script>';
     return '<!DOCTYPE html>' . "\n" . '<html lang="vi">' . "\n<head>\n"
-        . nhadep_head('Lưu trữ tin tức — ' . NHADEP_BRAND_SHORT, $desc, NHADEP_CANONICAL . 'tin-tuc/')
+        . nhadep_head('Lưu trữ tin tức — ' . NHADEP_BRAND_SHORT, $desc, NHADEP_CANONICAL . 'tin-tuc/', $extra)
         . "</head>\n<body>\n"
         . nhadep_header_html(false)
         . '<main class="wrap">' 

@@ -25,7 +25,8 @@ WordPress noithatdatky.com          máy Hostinger (nhadepnghean.vn)
 - **Không database.** Mọi trang là HTML tĩnh, CSS nhúng inline, không tài nguyên ngoài → tải cực nhanh.
 - Mỗi ngày có bài đăng mới → một trang digest `tin tức ngày <ngày>` liệt kê các bài đó (tiêu đề dẫn về bài gốc trên noithatdatky.com, mô tả, ảnh thumbnail lazy-load, giờ đăng gốc).
 - Trang chủ `index.html` là landing page giới thiệu **Nội thất Đạt Ký — thi công nội thất trọn gói tại Nghệ An**, kèm lưới liên kết tới tất cả các trang theo ngày (mới nhất trước), meta SEO đầy đủ (canonical `https://nhadepnghean.vn/`, Open Graph, JSON-LD WebSite + ItemList).
-- Idempotent: chạy lại chỉ sinh lại trang chủ/sitemap; các trang ngày đã có và không đổi dữ liệu nguồn sẽ được bỏ qua (hash lưu trong `out/.state.json`) trừ khi dùng `--force`.
+- **JSON-LD LocalBusiness + BreadcrumbList:** nút `LocalBusiness` (tên, hotline, email, PostalAddress Diễn Châu — Nghệ An, logo, areaServed Nghệ An/Hà Tĩnh) có trên cả 3 loại trang (landing / trang ngày / lưu trữ), liên kết qua `@id` từ `WebSite.publisher` và `CollectionPage.publisher`; `BreadcrumbList` phủ đúng nav `.crumbs` nhìn thấy trên trang ngày (`Trang chủ › Tin tức › dd-mm-yyyy`) và lưu trữ (`Trang chủ › Lưu trữ`) — trang chủ không cần breadcrumb vì chính là cấp gốc.
+- Idempotent: chạy lại chỉ sinh lại trang chủ/sitemap; các trang ngày đã có và không đổi dữ liệu nguồn sẽ được bỏ qua (hash lưu trong `out/.state.json`) trừ khi dùng `--force`. ⚠️ Vì hash chỉ gồm dữ liệu bài viết (không gồm HTML), lần triển khai markup mới (như JSON-LD) cần chạy `--force` một lần để sinh lại toàn bộ trang ngày.
 
 ## 2. Yêu cầu
 
@@ -48,13 +49,13 @@ php -S localhost:8080 -t out                             # xem thử tại http:
 ### 3.1. Chạy test
 
 ```bash
-php tests/run_tests.php    # 86 test, không cần thư viện ngoài; exit 0 = pass hết
+php tests/run_tests.php    # 95 test, không cần thư viện ngoài; exit 0 = pass hết
 ```
 
 Test phủ: escaping/URL allowlist, quy đổi giờ GMT→Việt Nam cho khóa ngày, sinh slug, **ghim slug cố định
 cho từng ngày (stored thắng bài mới hơn, suffix khi trùng)**, nhãn ngày/giờ
 (tiếng Việt), nhóm bài theo ngày, hash idempotency, **biên ghi file không thoát khỏi thư mục out**,
-**render offline từ fixture cố định** (title/canonical/JSON-LD; sitemap/feed well-formed),
+**render offline từ fixture cố định** (title/canonical/JSON-LD: CollectionPage, BlogPosting, LocalBusiness, BreadcrumbList; sitemap/feed well-formed),
 state round-trip, và CLI `--help`.
 
 ## 4. Các tham số CLI của generator

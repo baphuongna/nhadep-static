@@ -161,6 +161,59 @@ function nhadep_run_render_tests(callable $check): void
         is_array($bp) && ($bp['headline'] ?? '') !== '' && ($bp['url'] ?? '') !== '' && ($bp['datePublished'] ?? '') !== '');
 
     /* =====================================================================
+     * JSON-LD LocalBusiness + BreadcrumbList
+     * ================================================================== */
+    $nodeByType = static function (array $graph, string $type): ?array {
+        foreach ($graph as $node) {
+            if (is_array($node) && ($node['@type'] ?? '') === $type) {
+                return $node;
+            }
+        }
+        return null;
+    };
+    $graphOf = static function (string $html): array {
+        if (preg_match('#<script type="application/ld\+json">(.*?)</script>#s', $html, $m)) {
+            $ld = json_decode($m[1], true);
+            return is_array($ld) && is_array($ld['@graph'] ?? null) ? $ld['@graph'] : [];
+        }
+        return [];
+    };
+
+    $lb = $nodeByType($graph, 'LocalBusiness');
+    $check('daily: JSON-LD has LocalBusiness with PostalAddress + hotline',
+        is_array($lb)
+        && ($lb['@id'] ?? '') === NHADEP_CANONICAL . '#localbusiness'
+        && ($lb['address']['@type'] ?? '') === 'PostalAddress'
+        && ($lb['address']['addressRegion'] ?? '') === 'Nghệ An'
+        && ($lb['telephone'] ?? '') === '+84922355368');
+
+    // BR-ND-003: address node must be DERIVED from NHADEP_ADDRESS — every part
+    // (street, locality, region) is contained in the single-source constant.
+    $lbStreet = (string) ($lb['address']['streetAddress'] ?? '');
+    $lbLoc    = (string) ($lb['address']['addressLocality'] ?? '');
+    $lbReg    = (string) ($lb['address']['addressRegion'] ?? '');
+    $check('daily: LocalBusiness address derived from NHADEP_ADDRESS (no duplicate literal)',
+        is_array($lb)
+        && ($lb['address']['@type'] ?? '') === 'PostalAddress'
+        && $lbStreet !== '' && str_contains(NHADEP_ADDRESS, $lbStreet)
+        && $lbLoc !== '' && str_contains(NHADEP_ADDRESS, $lbLoc)
+        && $lbReg !== '' && str_contains(NHADEP_ADDRESS, $lbReg));
+
+    $bc    = $nodeByType($graph, 'BreadcrumbList');
+    $bItems = is_array($bc) ? ($bc['itemListElement'] ?? []) : [];
+    $check('daily: BreadcrumbList mirrors .crumbs (3 levels, current page last)',
+        is_array($bc)
+        && ($bc['@id'] ?? '') === NHADEP_CANONICAL . $slugA . '/#breadcrumb'
+        && count($bItems) === 3
+        && ($bItems[0]['name'] ?? '') === 'Trang chủ' && ($bItems[0]['item'] ?? '') === NHADEP_CANONICAL
+        && ($bItems[1]['name'] ?? '') === 'Tin tức' && ($bItems[1]['item'] ?? '') === NHADEP_CANONICAL . 'tin-tuc/'
+        && ($bItems[2]['name'] ?? '') === '14-10-2026' && ($bItems[2]['item'] ?? '') === NHADEP_CANONICAL . $slugA . '/'
+        && ($bItems[2]['position'] ?? 0) === 3);
+
+    $check('daily: CollectionPage.publisher links to LocalBusiness @id',
+        ($nodeByType($graph, 'CollectionPage')['publisher']['@id'] ?? '') === NHADEP_CANONICAL . '#localbusiness');
+
+    /* =====================================================================
      * nhadep_render_sitemap
      * ================================================================== */
     $sitemap = nhadep_render_sitemap($days, $lastmods);
@@ -228,6 +281,27 @@ function nhadep_run_render_tests(callable $check): void
         }
     }
     $check('index: links to every day slug', $indexOk);
+
+    /* ---- JSON-LD: LocalBusiness entity; breadcrumb stays off the homepage ---- */
+    $indexGraph = $graphOf($index);
+    $indexTypes = array_map(static fn (array $n): string => (string) ($n['@type'] ?? ''), $indexGraph);
+    $check('index: JSON-LD graph keeps WebSite + ItemList',
+        in_array('WebSite', $indexTypes, true) && in_array('ItemList', $indexTypes, true));
+    $check('index: JSON-LD has LocalBusiness entity',
+        $nodeByType($indexGraph, 'LocalBusiness') !== null);
+    $check('index: WebSite.publisher links to LocalBusiness @id',
+        ($nodeByType($indexGraph, 'WebSite')['publisher']['@id'] ?? '') === NHADEP_CANONICAL . '#localbusiness');
+    $check('index: no BreadcrumbList on the homepage (top level)',
+        !in_array('BreadcrumbList', $indexTypes, true));
+
+    $archiveGraph = $graphOf($archive);
+    $archiveBc    = $nodeByType($archiveGraph, 'BreadcrumbList');
+    $aItems       = is_array($archiveBc) ? ($archiveBc['itemListElement'] ?? []) : [];
+    $check('archive: JSON-LD has LocalBusiness + BreadcrumbList',
+        $nodeByType($archiveGraph, 'LocalBusiness') !== null && is_array($archiveBc)
+        && count($aItems) === 2
+        && ($aItems[0]['name'] ?? '') === 'Trang chủ' && ($aItems[0]['item'] ?? '') === NHADEP_CANONICAL
+        && ($aItems[1]['name'] ?? '') === 'Lưu trữ' && ($aItems[1]['item'] ?? '') === NHADEP_CANONICAL . 'tin-tuc/');
 
     /* =====================================================================
      * BR-ND-001 regression: HTML rendered via nhadep_head() must contain

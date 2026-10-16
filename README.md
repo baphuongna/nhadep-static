@@ -22,11 +22,11 @@ WordPress noithatdatky.com          máy Hostinger (nhadepnghean.vn)
                                     └─────────────────────────────────────┘
 ```
 
-- **Không database.** Mọi trang là HTML tĩnh, CSS nhúng inline, JS tối thiểu (một snippet ~350 byte cho menu mobile + bóng topbar), chỉ phụ thuộc Google Fonts → tải cực nhanh.
+- **Không database.** Mọi trang là HTML tĩnh, CSS nhúng inline, JS tối thiểu (một snippet ~350 byte cho menu mobile + bóng topbar), webfont self-host (`assets/fonts/`, nhúng base64 trong generator) → tải cực nhanh, không request nào ra ngoài (bỏ Google Fonts CDN).
 - Mỗi ngày có bài đăng mới → một trang digest `tin tức ngày <ngày>` liệt kê các bài đó (tiêu đề dẫn về bài gốc trên noithatdatky.com, mô tả, ảnh thumbnail lazy-load, giờ đăng gốc).
 - Trang chủ `index.html` là landing page giới thiệu **Nội thất Đạt Ký — thi công nội thất trọn gói tại Nghệ An**, kèm lưới liên kết tới tất cả các trang theo ngày (mới nhất trước), meta SEO đầy đủ (canonical `https://nhadepnghean.vn/`, Open Graph, JSON-LD WebSite + ItemList).
 - **JSON-LD LocalBusiness + BreadcrumbList:** nút `LocalBusiness` (tên, hotline, email, PostalAddress Diễn Châu — Nghệ An, logo, areaServed Nghệ An/Hà Tĩnh) có trên cả 3 loại trang (landing / trang ngày / lưu trữ), liên kết qua `@id` từ `WebSite.publisher` và `CollectionPage.publisher`; `BreadcrumbList` phủ đúng nav `.crumbs` nhìn thấy trên trang ngày (`Trang chủ › Tin tức › dd-mm-yyyy`) và lưu trữ (`Trang chủ › Lưu trữ`) — trang chủ không cần breadcrumb vì chính là cấp gốc.
-- Idempotent: chạy lại chỉ sinh lại trang chủ/sitemap; các trang ngày đã có và không đổi dữ liệu nguồn sẽ được bỏ qua (hash lưu trong `out/.state.json`) trừ khi dùng `--force`. ⚠️ Vì hash chỉ gồm dữ liệu bài viết (không gồm HTML), lần triển khai markup mới (như JSON-LD) cần chạy `--force` một lần để sinh lại toàn bộ trang ngày.
+- Idempotent: chạy lại chỉ sinh lại trang chủ/sitemap; các trang ngày đã có và không đổi dữ liệu nguồn sẽ được bỏ qua (hash lưu trong `out/.state.json`) trừ khi dùng `--force`. ⚠️ Vì hash chỉ gồm dữ liệu bài viết (không gồm HTML), lần triển khai markup mới (như JSON-LD, hay lần bỏ Google Fonts chuyển sang webfont self-host) cần chạy `--force` một lần để sinh lại toàn bộ trang ngày.
 
 ## 2. Yêu cầu
 
@@ -150,6 +150,9 @@ out/
 ├── robots.txt                  ← allow all + Sitemap ref
 ├── feed.xml                    ← RSS 20 mục mới nhất (nice-to-have)
 ├── .state.json                 ← hash từng ngày (idempotency) + map slugs đã gán (ổn định URL)
+├── assets/
+│   └── fonts/                  ← 16 file woff2 self-host (2 family × 8 face × 2 subset
+│                                 vietnamese+latin), ghi lại mỗi lần chạy (idempotent)
 ├── tin-tuc/
 │   └── index.html              ← hub lưu trữ: lưới tất cả các trang, mới nhất trước
 ├── <slug-chủ-đề>/
@@ -168,7 +171,12 @@ out/
 > (ngày mới trùng slug tự nhận hậu tố `-2`, `-3`…).
 
 Mỗi trang khoảng 40–65KB HTML thô tuỳ lượng bài/ngày (~9–14KB khi nén gzip), UTF-8 tiếng Việt,
-CSS inline mobile-first, không phụ thuộc framework — trang vẫn hiển thị đầy đủ khi mất mạng (chỉ thiếu font Google).
+CSS inline mobile-first, không phụ thuộc framework. **Webfont self-host** (NHADEP-F1-FONTS):
+`Cormorant Garamond` (600/700/600-italic) + `Be Vietnam Pro` (300–700) — subset `vietnamese` +
+`latin`, payload base64 nhúng trong `nhadep_font_assets()`, được ghi ra `assets/fonts/` đầu mỗi
+lần chạy và khai báo qua `@font-face` (kèm `unicode-range` + `font-display:swap`) ở đầu `<style>`.
+Trang không còn request font ra ngoài; font là file tĩnh phục vụ cùng origin nên trang vẫn hiển
+thị đúng typography kể cả khi mất mạng.
 
 ### 8.1. Design system (redesign "Architectural Editorial")
 

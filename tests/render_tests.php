@@ -560,4 +560,26 @@ function nhadep_run_render_tests(callable $check): void
     // archive uses the newest day thumb (asserted above); index may pass none.
     $check('regress BR-ND-001: daily <head> contains property=\"og:image\" (featured thumb)',
         str_contains($headOf($daily), 'property="og:image"'));
+
+    /* =====================================================================
+     * NHADEP-F1-FONTS: self-hosted webfonts — every rendered page must be
+     * free of external font requests and declare both families from
+     * /assets/fonts/ via @font-face with font-display:swap.
+     * ================================================================== */
+    foreach (['daily' => $daily, 'index' => $index, 'archive' => $archive] as $label => $html) {
+        $check("fonts {$label}: no fonts.googleapis.com reference",
+            !str_contains($html, 'fonts.googleapis.com'));
+        $check("fonts {$label}: no fonts.gstatic.com reference",
+            !str_contains($html, 'fonts.gstatic.com'));
+        $check("fonts {$label}: local @font-face for Be Vietnam Pro",
+            str_contains($html, '@font-face{font-family:"Be Vietnam Pro"')
+            && str_contains($html, 'url("/assets/fonts/be-vietnam-pro-'));
+        $check("fonts {$label}: local @font-face for Cormorant Garamond",
+            str_contains($html, '@font-face{font-family:"Cormorant Garamond"')
+            && str_contains($html, 'url("/assets/fonts/cormorant-garamond-'));
+        $check("fonts {$label}: font-display:swap on embedded faces",
+            str_contains($html, ';font-display:swap;unicode-range:'));
+    }
+    $check('fonts: 16 embedded faces (8 faces x vietnamese+latin)',
+        count(nhadep_font_assets()) === 16);
 }

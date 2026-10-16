@@ -268,6 +268,49 @@ require __DIR__ . '/fetch_tests.php';
 nhadep_run_fetch_tests('check');
 
 /* -------------------------------------------------------------------------
+ * NHADEP-F1-FONTS: font asset writer (offline — the base64 payloads live
+ * inside the generator file, no network is touched).
+ * ---------------------------------------------------------------------- */
+$fontTmp  = sys_get_temp_dir() . '/nhadep-font-tests-' . getmypid() . '-' . substr(md5((string) mt_rand()), 0, 6);
+$fontRoot = nhadep_resolve_out_dir($fontTmp . '/out');
+nhadep_write_font_assets($fontRoot);
+
+$fontFiles = glob($fontRoot . '/assets/fonts/*.woff2') ?: [];
+check('fonts: writer emits one file per embedded face',
+    count($fontFiles) === count(nhadep_font_assets()) && count($fontFiles) === 16);
+
+$fontsBytesOk = true;
+foreach (nhadep_font_assets() as $fname => $meta) {
+    $bin = is_file($fontRoot . '/assets/fonts/' . $fname)
+        ? (string) file_get_contents($fontRoot . '/assets/fonts/' . $fname) : '';
+    if ($bin === '' || substr($bin, 0, 4) !== 'wOF2'
+        || base64_decode($meta['b64'], true) !== $bin) {
+        $fontsBytesOk = false;
+    }
+}
+check('fonts: written bytes == base64 payload, non-empty, wOF2 magic', $fontsBytesOk);
+
+/* Idempotency: a second consecutive write must not fail or change bytes. */
+$fontHashesBefore = [];
+foreach ($fontFiles as $ff) {
+    $fontHashesBefore[basename($ff)] = md5((string) file_get_contents($ff));
+}
+$fontIdemOk = true;
+try {
+    nhadep_write_font_assets($fontRoot);
+} catch (Throwable) {
+    $fontIdemOk = false;
+}
+foreach ($fontFiles as $ff) {
+    if (md5((string) file_get_contents($ff)) !== $fontHashesBefore[basename($ff)]) {
+        $fontIdemOk = false;
+    }
+}
+check('fonts: second consecutive write is harmless (idempotent, byte-identical)', $fontIdemOk);
+
+$rrm($fontTmp);
+
+/* -------------------------------------------------------------------------
  * Summary
  * ---------------------------------------------------------------------- */
 $total = $GLOBALS['__pass'] + $GLOBALS['__fail'];

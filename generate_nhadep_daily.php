@@ -14,7 +14,7 @@
  *
  * Usage:
  *   php generate_nhadep_daily.php [--date=YYYY-MM-DD] [--force] [--max-posts=N]
- *                                 [--out=DIR] [--verbose] [--help]
+ *                                 [--out=DIR] [--verbose] [--prune-orphans] [--help]
  *
  * Exit codes: 0 = OK, 1 = fatal error, 2 = invalid arguments.
  */
@@ -702,6 +702,171 @@ function nhadep_write_state(string $outRoot, array $state): void
         $state,
         JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
     ) . "\n");
+}
+
+/* -------------------------------------------------------------------------
+ * Orphan day-dir maintenance (NHADEP-F2-ORPHANS)
+ * Day-page dirs at the out root that no longer belong to the slug map
+ * (e.g. after .state.json was lost/reset on the host) would deploy as
+ * 404 garbage / duplicate content. Same containment principle as
+ * nhadep_write_file(): deletes may never escape the out root.
+ * ---------------------------------------------------------------------- */
+
+/**
+ * Keep-set for the out root: day slugs (map values) + hub/assets dirs.
+ */
+function nhadep_orphan_keep_set(array $slugs): array
+{
+    $keep = ['tin-tuc' => true, 'assets' => true];
+    foreach ($slugs as $slug) {
+        if (is_string($slug) && $slug !== '') {
+            $keep[$slug] = true;
+        }
+    }
+    return $keep;
+}
+
+/**
+ * Top-level directories of $outRoot NOT in the keep set (day slugs +
+ * tin-tuc + assets). Files are ignored. Returns absolute realpaths,
+ * sorted. An unreadable/missing root yields [] (nothing detectable).
+ */
+function nhadep_find_orphan_dirs(string $outRoot, array $slugs): array
+{
+    $real = realpath($outRoot);
+    if ($real === false || !is_dir($real) || !is_readable($real)) {
+        return [];
+    }
+    $entries = scandir($real);
+    if ($entries === false) {
+        return [];
+    }
+    $keep = nhadep_orphan_keep_set($slugs);
+    $orphans = [];
+    foreach ($entries as $name) {
+        if ($name === '.' || $name === '..' || isset($keep[$name])) {
+            continue;
+        }
+        if (is_dir($real . DIRECTORY_SEPARATOR . $name)) {
+            $orphans[] = $real . DIRECTORY_SEPARATOR . $name;
+        }
+    }
+    return $orphans;
+}
+
+/** Recursively delete one directory tree; symlinks are unlinked, never followed. */
+function nhadep_rmdir_recursive(string $dir): void
+{
+    if (is_link($dir)) {
+        @unlink($dir);
+        return;
+    }
+    if (!is_dir($dir)) {
+        return;
+    }
+    foreach (scandir($dir) ?: [] as $name) {
+        if ($name === '.' || $name === '..') {
+            continue;
+        }
+        $path = $dir . DIRECTORY_SEPARATOR . $name;
+        if (is_link($path)) {
+            @unlink($path);
+        } elseif (is_dir($path)) {
+            nhadep_rmdir_recursive($path);
+        } else {
+            @unlink($path);
+        }
+    }
+    if (!@rmdir($dir)) {
+        throw new RuntimeException("Không xóa được thư mục: {$dir}");
+    }
+}
+
+/**
+ * Recursively delete the given orphan dirs (as returned by
+ * nhadep_find_orphan_dirs). Security: every dir's realpath must be a
+ * STRICT child of realpath($outRoot) (prefix + DIRECTORY_SEPARATOR), so
+ * `..` traversals and symlinks resolving outside are refused; refuses an
+ * unreadable out root. The whole list is validated before anything is
+ * deleted (all-or-nothing).
+ */
+function nhadep_prune_orphan_dirs(string $outRoot, array $dirs): void
+{
+    $rootReal = realpath($outRoot);
+    if ($rootReal === false || !is_dir($rootReal) || !is_readable($rootReal)) {
+        throw new RuntimeException("Không đọc được thư mục out: {$outRoot}");
+    }
+    $targets = [];
+    foreach ($dirs as $dir) {
+        $real = (is_string($dir) && $dir !== '') ? realpath($dir) : false;
+        if ($real === false || !is_dir($real)) {
+            throw new RuntimeException("Thư mục mồ côi không hợp lệ (không tồn tại hoặc không phải thư mục): {$dir}");
+        }
+        if ($real === $rootReal || !str_starts_with($real, $rootReal . DIRECTORY_SEPARATOR)) {
+            throw new RuntimeException("Từ chối xóa thư mục nằm ngoài (hoặc chính) thư mục out: {$dir}");
+        }
+        $targets[] = $real;
+    }
+    foreach ($targets as $target) {
+        nhadep_rmdir_recursive($target);
+    }
+}
+
+/**
+ * Post-generation orphan maintenance. Default: WARN with every orphan
+ * name + hint, never delete, exit code stays 0 (operational warning,
+ * must not break cron). With --prune-orphans: delete each orphan dir
+ * (log every dir + total). Fail-closed: when out/.state.json cannot be
+ * read/parsed there is no trusted slug set, so nothing is deleted and 1
+ * is returned.
+ */
+function nhadep_orphan_maintenance(string $outRoot, bool $prune): int
+{
+    $stateFile = $outRoot . '/.state.json';
+    $slugs = null;
+    if (is_file($stateFile) && is_readable($stateFile)) {
+        $decoded = json_decode((string) file_get_contents($stateFile), true);
+        if (is_array($decoded) && isset($decoded['slugs']) && is_array($decoded['slugs'])) {
+            $slugs = $decoded['slugs'];
+        }
+    }
+    if ($slugs === null) {
+        if ($prune) {
+            nhadep_log('Không đọc/parse được out/.state.json — không có tập slug tin cậy; KHÔNG xóa gì (fail-closed).', 'ERROR');
+            return 1;
+        }
+        nhadep_log('Không đọc được out/.state.json — bỏ qua quét thư mục mồ côi.', 'WARN');
+        return 0;
+    }
+
+    $orphans = nhadep_find_orphan_dirs($outRoot, $slugs);
+    if ($orphans === []) {
+        if ($prune) {
+            nhadep_log('Không có thư mục mồ côi nào để xóa.');
+        }
+        return 0;
+    }
+
+    if (!$prune) {
+        nhadep_log('Phát hiện ' . count($orphans) . ' thư mục mồ côi ở gốc out (không thuộc slug map):', 'WARN');
+        foreach ($orphans as $dir) {
+            nhadep_log('  - ' . basename($dir), 'WARN');
+        }
+        nhadep_log('Chạy lại với --prune-orphans để xóa chúng (mặc định KHÔNG bao giờ xóa).', 'WARN');
+        return 0;
+    }
+
+    try {
+        nhadep_prune_orphan_dirs($outRoot, $orphans);
+    } catch (Throwable $e) {
+        nhadep_log('LỖI khi xóa thư mục mồ côi: ' . $e->getMessage(), 'ERROR');
+        return 1;
+    }
+    foreach ($orphans as $dir) {
+        nhadep_log('Đã xóa thư mục mồ côi: ' . basename($dir));
+    }
+    nhadep_log('Đã xóa tổng cộng ' . count($orphans) . ' thư mục mồ côi.');
+    return 0;
 }
 
 /* -------------------------------------------------------------------------
@@ -6186,6 +6351,8 @@ Tuỳ chọn:
   --max-posts=N      Giới hạn số bài viết lấy từ API (mặc định: tất cả).
   --out=DIR          Thư mục xuất kết quả (mặc định: ./out).
   --verbose          In log chi tiết.
+  --prune-orphans    Xóa các thư mục trang ngày mồ côi ở gốc out (không thuộc
+                     slug map trong .state.json). Mặc định chỉ cảnh báo (WARN).
   --help             Hiện trợ giúp này.
 
 HELP;
@@ -6198,12 +6365,13 @@ HELP;
 function nhadep_parse_args(array $argv, bool $throwOnBad = false): array
 {
     $opts = [
-        'date'      => null,
-        'force'     => false,
-        'maxPosts'  => 0,
-        'outDir'    => 'out',
-        'verbose'   => false,
-        'help'      => false,
+        'date'          => null,
+        'force'         => false,
+        'maxPosts'      => 0,
+        'outDir'        => 'out',
+        'verbose'       => false,
+        'pruneOrphans'  => false,
+        'help'          => false,
     ];
     $bad = null;
 
@@ -6212,6 +6380,8 @@ function nhadep_parse_args(array $argv, bool $throwOnBad = false): array
             $opts['force'] = true;
         } elseif ($arg === '--verbose') {
             $opts['verbose'] = true;
+        } elseif ($arg === '--prune-orphans') {
+            $opts['pruneOrphans'] = true;
         } elseif ($arg === '--help') {
             $opts['help'] = true;
         } elseif (str_starts_with($arg, '--date=')) {
@@ -6409,7 +6579,12 @@ function run_main(array $argv): int
 
         nhadep_write_state($outRoot, $state);
         nhadep_log("Hoàn tất: {$generated} trang mới, {$skipped} trang bỏ qua (không đổi).");
-        return 0;
+
+        // ---- Orphan day-dir scan / opt-in prune (NHADEP-F2-ORPHANS) ----
+        // Sau khi trang + state đã ghi xong: WARN mặc định (exit 0),
+        // chỉ xóa khi có cờ --prune-orphans tường minh (fail-closed khi
+        // state không đọc/parse được).
+        return nhadep_orphan_maintenance($outRoot, (bool) $opts['pruneOrphans']);
     } catch (Throwable $e) {
         nhadep_log('LỖI CHÍNH: ' . $e->getMessage(), 'ERROR');
         return 1;

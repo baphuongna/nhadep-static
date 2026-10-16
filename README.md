@@ -58,7 +58,7 @@ Test phủ: escaping/URL allowlist, quy đổi giờ GMT→Việt Nam cho khóa 
 cho từng ngày (stored thắng bài mới hơn, suffix khi trùng)**, nhãn ngày/giờ
 (tiếng Việt), nhóm bài theo ngày, hash idempotency, **biên ghi file không thoát khỏi thư mục out**,
 **render offline từ fixture cố định** (title/canonical/JSON-LD: CollectionPage, BlogPosting, LocalBusiness, BreadcrumbList; sitemap/feed well-formed),
-state round-trip, và CLI `--help`. Các bảo đảm mới từ S1–S3 cũng được phủ:
+state round-trip, CLI `--help`, và **quét/xóa có kiểm soát thư mục ngày mồ côi** (`--prune-orphans`, fail-closed khi state hỏng). Các bảo đảm mới từ S1–S3 cũng được phủ:
 
 - **Feed trỏ trang ngày thật:** mỗi `<item>` trong `feed.xml` trỏ tới `<day-slug>/` của đúng trang ngày chứa bài,
   không trỏ slug nguồn mà generator không sinh (tránh link 404); khi thiếu map hợp lệ thì fallback về link nguồn đã allowlist, không bịa URL nhadepnghean.vn.
@@ -77,6 +77,7 @@ state round-trip, và CLI `--help`. Các bảo đảm mới từ S1–S3 cũng �
 | `--force` | Sinh lại mọi trang kể cả khi dữ liệu nguồn không đổi. |
 | `--max-posts=N` | Giới hạn số bài lấy về (mặc định: tất cả ~107 bài). |
 | `--verbose` | In log chi tiết. |
+| `--prune-orphans` | **Opt-in:** xóa các thư mục trang ngày "mồ côi" ở gốc `out/` (không nằm trong slug map của `.state.json`). Mặc định generator chỉ **cảnh báo (WARN)**, không xóa. |
 | `--help` | Trợ giúp. |
 
 Mã lỗi khác 0 khi có lỗi nghiêm trọng; log luôn ghi ra STDOUT.
@@ -169,6 +170,14 @@ out/
 > `.state.json` (`slugs`), các lần chạy sau tái sử dụng nguyên giá trị — bài mới hơn đăng
 > trong ngày **không** làm đổi URL trang ngày; slug đã gán không bao giờ bị ngày khác tái sử dụng
 > (ngày mới trùng slug tự nhận hậu tố `-2`, `-3`…).
+
+> **Thư mục mồ côi (NHADEP-F2-ORPHANS):** nếu `.state.json` bị mất/reset trên host (hoặc slug đổi),
+> các dir slug cũ ở gốc `out/` không còn thuộc slug map sẽ thành mồ côi — 404/rác/trùng lặp nội dung
+> khi deploy lại. Sau mỗi lần chạy, generator quét gốc `out/` và **WARN** số lượng + tên từng dir mồ côi
+> (exit code vẫn 0, không làm hỏng cron). Muốn xóa, chạy lại với `--prune-orphans`: mỗi dir bị xóa được
+> log kèm tổng số. Xóa chỉ diễn ra khi (a) cờ tường minh, (b) dir ngoài tập giữ lại (slug + `tin-tuc` +
+> `assets`), (c) dir nằm **nghiêm ngặt trong** `out/` đã realpath (chặn `..`/symlink ra ngoài). Nếu
+> `.state.json` không đọc/parse được → **không xóa gì**, exit ≠ 0 (fail-closed).
 
 Mỗi trang khoảng 40–65KB HTML thô tuỳ lượng bài/ngày (~9–14KB khi nén gzip), UTF-8 tiếng Việt,
 CSS inline mobile-first, không phụ thuộc framework. **Webfont self-host** (NHADEP-F1-FONTS):

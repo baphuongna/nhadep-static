@@ -254,6 +254,11 @@ $helpText = implode("\n", $outLines);
 check('cli: --help exits 0', $exitCode === 0);
 check('cli: --help documents --out and --force',
     str_contains($helpText, '--out=') && str_contains($helpText, '--force'));
+check('cli: --help documents --prune-orphans',
+    str_contains($helpText, '--prune-orphans'));
+check('cli: --prune-orphans parsed true, default false',
+    nhadep_parse_args(['g', '--prune-orphans'], true)['pruneOrphans'] === true
+    && nhadep_parse_args(['g'], true)['pruneOrphans'] === false);
 
 /* -------------------------------------------------------------------------
  * Offline render tests (fixture-driven, no network)
@@ -309,6 +314,139 @@ foreach ($fontFiles as $ff) {
 check('fonts: second consecutive write is harmless (idempotent, byte-identical)', $fontIdemOk);
 
 $rrm($fontTmp);
+
+/* -------------------------------------------------------------------------
+ * NHADEP-F2-ORPHANS: orphan day-dir detection + opt-in prune
+ * (offline; mọi thao tác trong temp dir ngoài repo)
+ * ---------------------------------------------------------------------- */
+$oTmp  = sys_get_temp_dir() . '/nhadep-orphan-tests-' . getmypid() . '-' . substr(md5((string) mt_rand()), 0, 6);
+$oRoot = nhadep_resolve_out_dir($oTmp . '/out');
+
+/* fake out: 2 dir slug hợp lệ + tin-tuc/ + assets/ + FILE rời + 2 orphan (1 có index.html, 1 rỗng) */
+foreach (['slug-a/index.html', 'slug-b/index.html', 'tin-tuc/index.html',
+    'assets/fonts/fake.woff2', 'orphan-co-trang/index.html'] as $rel) {
+    nhadep_write_file($oRoot, $rel, 'x');
+}
+mkdir($oRoot . '/orphan-rong', 0775, true);
+file_put_contents($oRoot . '/index.html', 'landing');
+file_put_contents($oRoot . '/sitemap.xml', 'sm');
+nhadep_write_state($oRoot, ['days' => [], 'slugs' => [
+    '2026-10-13' => 'slug-a',
+    '2026-10-14' => 'slug-b',
+]]);
+
+/* recursive sorted file listing — proves "mọi thứ khác NGUYÊN VẸN" */
+$oList = static function (string $dir) use (&$oList): array {
+    $files = [];
+    foreach (scandir($dir) ?: [] as $f) {
+        if ($f === '.' || $f === '..') {
+            continue;
+        }
+        $p = $dir . DIRECTORY_SEPARATOR . $f;
+        if (is_dir($p) && !is_link($p)) {
+            $files = array_merge($files, $oList($p));
+        } else {
+            $files[] = $p;
+        }
+    }
+    sort($files);
+    return $files;
+};
+
+$oBefore = $oList($oRoot);
+
+$foundNames = array_map('basename', nhadep_find_orphan_dirs(
+    $oRoot,
+    ['2026-10-13' => 'slug-a', '2026-10-14' => 'slug-b']
+));
+sort($foundNames);
+check('orphans: find trả đúng 2 orphan, bỏ qua FILE rời + dir giữ lại (slug/tin-tuc/assets)',
+    $foundNames === ['orphan-co-trang', 'orphan-rong']);
+
+check('orphans: không cờ → KHÔNG xóa, logic exit 0 (orphan vẫn còn, không file nào đổi)',
+    nhadep_orphan_maintenance($oRoot, false) === 0
+    && is_dir($oRoot . '/orphan-co-trang') && is_dir($oRoot . '/orphan-rong')
+    && $oList($oRoot) === $oBefore);
+
+/* expected file list = before − file nằm dưới orphan-co-trang/ (orphan-rong rỗng) */
+$oExpectedAfter = array_values(array_filter($oBefore, static fn (string $f): bool =>
+    !str_contains(str_replace('\\', '/', $f), '/orphan-co-trang/')));
+check('orphans: có cờ → xóa đúng 2 orphan, mọi thứ khác NGUYÊN VẸN (so danh sách file trước/sau)',
+    nhadep_orphan_maintenance($oRoot, true) === 0
+    && !is_dir($oRoot . '/orphan-co-trang') && !is_dir($oRoot . '/orphan-rong')
+    && is_dir($oRoot . '/slug-a') && is_dir($oRoot . '/slug-b')
+    && is_dir($oRoot . '/tin-tuc') && is_dir($oRoot . '/assets')
+    && is_file($oRoot . '/index.html') && is_file($oRoot . '/.state.json')
+    && is_file($oRoot . '/sitemap.xml')
+    && $oList($oRoot) === $oExpectedAfter);
+
+/* fail-closed: state hỏng/không đọc được → KHÔNG xóa gì */
+mkdir($oRoot . '/orphan-moi', 0775, true);
+file_put_contents($oRoot . '/.state.json', '{corrupt json');
+check('orphans: state hỏng + cờ → KHÔNG xóa gì, trả lỗi (fail-closed)',
+    nhadep_orphan_maintenance($oRoot, true) === 1
+    && is_dir($oRoot . '/orphan-moi') && is_dir($oRoot . '/slug-a'));
+
+check('orphans: state hỏng + KHÔNG cờ → vẫn exit 0 (chỉ WARN, bỏ qua quét)',
+    nhadep_orphan_maintenance($oRoot, false) === 0 && is_dir($oRoot . '/orphan-moi'));
+
+unlink($oRoot . '/.state.json');
+check('orphans: state MẤT + cờ → KHÔNG xóa gì, trả lỗi',
+    nhadep_orphan_maintenance($oRoot, true) === 1 && is_dir($oRoot . '/orphan-moi'));
+
+nhadep_write_state($oRoot, ['days' => [], 'slugs' => ['2026-10-13' => 'slug-a', '2026-10-14' => 'slug-b']]);
+check('orphans: state hồi phục xong → cờ xóa nốt orphan còn sót',
+    nhadep_orphan_maintenance($oRoot, true) === 0 && !is_dir($oRoot . '/orphan-moi'));
+
+/* bảo mật đường dẫn: traversal/absolute/out-root/symlink đều bị chặn */
+$evilDir = $oTmp . '/ben-ngoai-out';
+mkdir($evilDir, 0775, true);
+file_put_contents($evilDir . '/giu-nguyen.txt', 'x');
+
+$refused = false;
+try {
+    nhadep_prune_orphan_dirs($oRoot, [$oRoot . '/../ben-ngoai-out']);
+} catch (RuntimeException) {
+    $refused = true;
+}
+check('orphans: prune chặn path traversal ../ ra ngoài out root',
+    $refused && is_file($evilDir . '/giu-nguyen.txt'));
+
+$refusedAbs = false;
+try {
+    nhadep_prune_orphan_dirs($oRoot, [$evilDir]);
+} catch (RuntimeException) {
+    $refusedAbs = true;
+}
+check('orphans: prune chặn đường dẫn tuyệt đối ngoài out root',
+    $refusedAbs && is_file($evilDir . '/giu-nguyen.txt'));
+
+$refusedRoot = false;
+try {
+    nhadep_prune_orphan_dirs($oRoot, [$oRoot]);
+} catch (RuntimeException) {
+    $refusedRoot = true;
+}
+check('orphans: prune từ chối xóa chính out root', $refusedRoot && is_dir($oRoot));
+
+/* symlink trỏ ra ngoài: bị chặn nếu hệ thống tạo được symlink
+   (Windows thường không tạo được nếu thiếu privilege → skip an toàn) */
+$linkPath  = $oRoot . '/link-roi-ra-ngoai';
+$linkMade  = @symlink($evilDir, $linkPath) && is_link($linkPath);
+$linkSafe  = true;
+if ($linkMade) {
+    $linkSafe = false;
+    try {
+        nhadep_prune_orphan_dirs($oRoot, [$linkPath]);
+    } catch (RuntimeException) {
+        $linkSafe = true;
+    }
+    @unlink($linkPath);
+}
+check('orphans: prune chặn symlink trỏ ra ngoài (hoặc symlink không tạo được trên hệ này)',
+    $linkSafe && is_file($evilDir . '/giu-nguyen.txt'));
+
+$rrm($oTmp);
 
 /* -------------------------------------------------------------------------
  * Summary

@@ -67,6 +67,9 @@ state round-trip, CLI `--help`, và **quét/xóa có kiểm soát thư mục ng�
   hết retry mà vẫn lỗi hoặc vượt `NHADEP_MAX_PAGES` (60) thì **dừng và báo lỗi** thay vì im lặng cắt dữ liệu.
 - **Ảnh hero/og:image dùng biến thể `large`:** hero của trang ngày và `og:image`/`twitter:image` lấy ảnh `large`
   (fallback `full` → `medium_large` → `medium`), trong khi card danh sách vẫn dùng `medium`; kèm `og:image:width`/`og:image:height` khi biết kích thước.
+- **Preload ảnh hero trang ngày (LCP):** trang ngày có ảnh hero phát sinh đúng một dòng
+  `<link rel="preload" as="image" … fetchpriority="high">` trong `<head>` — URL đi qua cùng cơ chế escape/allowlist
+  như `style="background-image…"` — để browser tải sớm ảnh LCP; trang không có hero ảnh thì không có preload nào.
 
 ## 4. Các tham số CLI của generator
 

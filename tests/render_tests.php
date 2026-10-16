@@ -582,4 +582,30 @@ function nhadep_run_render_tests(callable $check): void
     }
     $check('fonts: 16 embedded faces (8 faces x vietnamese+latin)',
         count(nhadep_font_assets()) === 16);
+
+    /* =====================================================================
+     * NHADEP-F3-HEROPRELOAD: CSS hero background của trang ngày là phần tử
+     * LCP — head phải phát sinh đúng MỘT <link rel=preload as=image ... 
+     * fetchpriority=high> với URL hero đã escape đúng như style background;
+     * trang ngày không ảnh / landing / lưu trữ không có preload as=image nào.
+     * ================================================================== */
+    $noImgDaily   = nhadep_render_daily_page($dayKeyB, $slugB, [$fixture[2]], $contact, null, null);
+    $preloadLine  = '<link rel="preload" as="image" href="' . $largeUrl . '" fetchpriority="high">';
+    $check('f3: daily with hero emits exactly ONE preload line with the exact hero URL + fetchpriority=high inside <head>',
+        substr_count($daily, $preloadLine) === 1
+        && substr_count($daily, '<link rel="preload" as="image"') === 1
+        && str_contains($headOf($daily), $preloadLine));
+    $check('f3: daily preload href is the same escaped URL as the hero background style',
+        str_contains($daily, "background-image:url('" . $largeUrl . "')")
+        && nhadep_safe_url(nhadep_hero_src($fixture[0])) === $largeUrl);
+    $check('f3: day page WITHOUT hero image emits no preload as=image',
+        substr_count($noImgDaily, '<link rel="preload" as="image"') === 0);
+    $check('f3: landing emits no preload as=image (with or without hero image)',
+        substr_count($index, '<link rel="preload" as="image"') === 0
+        && substr_count($indexLarge, '<link rel="preload" as="image"') === 0);
+    $check('f3: archive emits no preload as=image',
+        substr_count($archive, '<link rel="preload" as="image"') === 0);
+    $check('f3: preload escapes & exactly once, like the hero background',
+        str_contains($ampDaily, '<link rel="preload" as="image" href="' . $ampEsc . '" fetchpriority="high">')
+        && !str_contains($ampDaily, '<link rel="preload" as="image" href="' . $ampDbl . '" fetchpriority="high">'));
 }

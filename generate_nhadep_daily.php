@@ -5906,6 +5906,15 @@ function nhadep_render_daily_page(
         . json_encode(['@context' => 'https://schema.org', '@graph' => $graph], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
         . '</script>';
 
+    // NHADEP-F3-HEROPRELOAD: the hero is a CSS background-image (discovered
+    // late, fetched at low priority) and the day page's LCP element. Emit
+    // exactly ONE high-priority preload for it — same URL path as the style
+    // attribute above (nhadep_safe_url over the nhadep_hero_src raw URL),
+    // no new trust path. Pages without a hero image get no preload.
+    if ($heroImg !== '') {
+        $extra = '<link rel="preload" as="image" href="' . nhadep_safe_url($heroImg) . '" fetchpriority="high">' . "\n" . $extra;
+    }
+
     $items = '';
     foreach ($dayPosts as $i => $post) {
         $items .= nhadep_post_card($post, $i === 0 ? 'h2' : 'h3', $i === 0, $i) . "\n";

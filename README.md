@@ -280,3 +280,15 @@ trước khi nhúng vào `<style>` của từng trang:
 - **Responsive**: 1 cột → 2 cột (≥600px) → 3 cột (≥900px); menu mobile bằng checkbox thuần CSS (`#nav-open`)
   kèm snippet đóng menu khi bấm link; tôn trọng `prefers-reduced-motion`; có skip-link, `:focus-visible`, favicon SVG inline, `theme-color`.
 - Snippet JS ở footer cũng bật shadow cho topbar khi cuộn (`scrollY > 8`); không có JS thì trang vẫn hoạt động bình thường.
+
+### 8.2. Trọng lượng trang & hiệu năng (baseline tại README `42506c7`, artifact `9155dde`)
+
+So với bản trước (self-host fonts + hero preload, 106 trang ngày, đo `gzip -9`):
+
+- Trang ngày: cũ mean 10.385 B → mới mean 10.718 B gz (**+333 B/trang ≈ +3,2%**); min/max 10.249→10.583 / 11.032→11.391. Thô +5,4 KB/trang (16 rule `@font-face` inline + 1 dòng preload, `diff` xác nhận không đổi gì khác).
+- `index.html` gz +273 B, `tin-tuc/index.html` gz +315 B.
+- Font: 16 woff2 self-host, tổng **298.144 B**, chia subset vietnamese/latin theo `unicode-range`, `font-display:swap` — không còn request font/CSS ra ngoài origin (bỏ render-blocking CSS googleapis).
+- Hero preload `fetchpriority="high"` trong `<head>` (ảnh mẫu 92–151 KB, vẫn tải từ `noithatdatky.com` — cross-origin, host nguồn chi phối thời gian tải).
+- Kỳ vọng LCP: cải thiện chủ yếu do bỏ render-blocking CSS ngoài + hero được phát hiện sớm; **chưa có số đo field/lab** (phải deploy rồi đo CrUX/Lighthouse).
+
+Số liệu đầy đủ (bảng min/mean/max từng tập, 16 file woff2, ảnh hero, lệnh tái tạo từng số): `D:/bom/reports/nhadep-rounds/round5-sanity.md` (báo cáo vòng, ngoài git).

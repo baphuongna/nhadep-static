@@ -118,6 +118,83 @@ Các bước theo thứ tự:
 DRY_RUN=1 CONFIRM_WIPE=1 SSH_HOST=... ./deploy.sh --cron   # xem cả lộ trình phá hủy trên giấy
 ```
 
+### 5.2. Checklist deploy & smoke-check (cho người vận hành)
+
+**Bước 0 — chốt 2 quyết định TRƯỚC khi deploy** (README chỉ nêu lựa chọn, không quy định hộ):
+
+1. **Đích ghi của cron.** Cron ở §6 chạy `/usr/bin/php /home/u774297306/generate_nhadep_daily.php`
+   **không có `--out=`** → generator ghi vào `./out` theo cwd của cron (thường `$HOME` → `~/out`),
+   **không phải** `domains/nhadepnghean.vn/public_html`. Phải chọn một:
+   - (a) sửa 2 dòng cron thêm `--out=domains/nhadepnghean.vn/public_html` (cron ghi thẳng webroot), hoặc
+   - (b) giữ cron ghi `~/out` và tự có bước đồng bộ `~/out/.` → webroot sau mỗi lần chạy.
+
+   Không chốt = trang mới do cron sinh nằm chờ ở `~/out`, webroot không bao giờ được cập nhật.
+2. **Cách đưa markup mới lên host ngay.** Sau khi deploy generator mới, cron mặc định **SKIP mọi
+   trang ngày đã có** (hash idempotency chỉ gồm dữ liệu bài, không gồm HTML — rủi ro 4 ở §5.3).
+   Muốn webroot có markup mới NGAY: deploy bằng artifact dựng sẵn (tarball kèm repo — **khuyến nghị**),
+   hoặc chạy một lần `--force` trên host.
+
+**Bước 1 — deploy theo hợp đồng §5** (chạy `DRY_RUN=1` trước). Lưu ý: bước scp phải đưa
+**toàn bộ `out/.`**, tính cả file ẩn `.state.json`. **KHÔNG extract tarball artifact thẳng vào
+webroot** — tarball không chứa `.state.json` (rủi ro 1 ở §5.3).
+
+**Bước 2 — smoke-check sau deploy (readonly, chạy từ máy bất kỳ):**
+
+```bash
+BASE=https://nhadepnghean.vn
+DAY=<slug-trang-ngày-bất-kỳ>                          # lấy từ sitemap.xml
+for U in "$BASE/" "$BASE/tin-tuc/" "$BASE/$DAY/" \
+         "$BASE/assets/fonts/be-vietnam-pro-latin-400.woff2" \
+         "$BASE/sitemap.xml" "$BASE/feed.xml"; do
+  curl -sI "$U" | head -1                             # kỳ vọng 200 cho mọi URL
+done
+curl -s  "$BASE/"      | grep -c googleapis          # kỳ vọng 0
+curl -s  "$BASE/$DAY/" | grep -c googleapis          # kỳ vọng 0
+```
+
+**Bước 3 — xác nhận đích cron khớp cây đã deploy:** trên host, kiểm tra `.state.json` nằm ở đúng
+thư mục mà cron sẽ ghi (theo quyết định bước 0). Cây cron ghi mà thiếu `.state.json` của host
+→ rủi ro gán lại slug (rủi ro 1 ở §5.3).
+
+Lỗi ở bước nào → rollback theo §7, xử lý nguyên nhân rồi mới thử lại.
+
+### 5.3. Quy ước artifact tarball + rủi ro đã biết
+
+**Quy ước đóng tarball** (trước đây chỉ tồn tại ngầm trong git history; tái lập từ cây `out/`):
+
+```bash
+cp generate_nhadep_daily.php out/
+tar czf nhadep-static-site.tar.gz --exclude=./.state.json -C out .
+rm out/generate_nhadep_daily.php
+```
+
+Nội dung tarball = **toàn bộ cây `out/` trừ `.state.json`**, cộng thêm `./generate_nhadep_daily.php`
+ở root. Tại `9155dde`: 238 member, 1.739.332 bytes, gồm 108 HTML (106 trang ngày + `index.html` +
+`tin-tuc/index.html`) — mọi HTML đều khai `@font-face` self-host, 106 trang ngày mỗi trang đúng 1
+preload `fetchpriority="high"`, 16 file woff2 trong `assets/fonts/` (298.144 bytes), 0 tham chiếu
+`googleapis`/`gstatic`.
+
+**Rủi ro đã biết (số liệu định lượng tại `9155dde`):**
+
+1. **Tarball KHÔNG phải đơn vị deploy hoàn chỉnh.** Nó thiếu `.state.json` (do `--exclude`).
+   Extract tarball vào webroot làm deploy → host mất state slug → lần chạy cron sau có nguy cơ
+   gán slug khác cho ngày cũ (URL trang đổi, link cũ 404). Deploy đúng vẫn là scp toàn bộ `out/.`
+   như §5 bước 5. Nếu muốn lấy nội dung từ tarball: extract ra thư mục tạm, copy thêm
+   `.state.json` từ `out/` local vào, rồi scp.
+2. **Khe hở cron ↔ webroot.** Cron mặc định (§6) ghi `~/out`, không ghi webroot — phải chốt (a)
+   hay (b) ở §5.2 bước 0 trước khi deploy; đây là quyết định của người vận hành.
+3. **Kích thước trang & cache font.** Font là **file tĩnh** `assets/fonts/*.woff2` (ổn định 16 face
+   = 2 family × 8 face × 2 subset; tại `9155dde` tổng 298.144 bytes ≈ 291 KiB), trình duyệt tải
+   riêng theo URL với `font-display:swap` + `unicode-range`; **không** nhúng base64 vào HTML
+   (base64 chỉ nằm trong source generator làm kho font khi ghi ra đĩa). HTML tại `9155dde`:
+   trang ngày ~48–50 KB, `index.html` ~72 KB, `tin-tuc/` ~64 KB — rủi ro "trang phình vì base64"
+   không tồn tại. Rủi ro thật cho lần đổi font sau này: URL file mới = cache tự bust; giữ nguyên
+   URL = trình duyệt giữ font cũ rất lâu → khi đổi font nên đổi luôn tên file/URL.
+4. **Rollout markup mới trên host.** Hash idempotency (`nhadep_day_hash`) chỉ gồm dữ liệu bài
+   (id/date_gmt/title/excerpt/thumb/link) — đổi CSS/JSON-LD/font không đổi hash → cron mặc định
+   SKIP các trang ngày cũ. Muốn markup mới có mặt ngay: deploy artifact dựng sẵn (khuyến nghị)
+   hoặc chạy một lần `--force` trên host.
+
 ## 6. Cron schedule
 
 Hai dòng cron được đăng ký trên host (giờ theo đồng hồ server — server Hostinger thường dùng UTC, nên 07:15/19:15 server ≈ 14:15/02:15 giờ Việt Nam; ý định là **07:15 sáng + 19:15 tối theo Asia/Ho_Chi_Minh**, hãy kiểm tra `date` trên host nếu cần chỉnh):
